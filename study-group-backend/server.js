@@ -6,6 +6,7 @@ import authRoutes from "./routes/authRoutes.js";
 import googleRoutes from "./routes/googleRoutes.js";
 import passwordRoutes from "./routes/passwordRoutes.js";
 import groupRoutes from "./routes/groupRoutes.js";
+import calendarRoutes from "./routes/calendarRoutes.js";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleRoutes);
 app.use('/api/password', passwordRoutes);
 app.use("/api/groups", groupRoutes);
+app.use("/api/calendar", calendarRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
