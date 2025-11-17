@@ -8,7 +8,6 @@ export default function UserDashboard({ currentUserId }) {
   const [allGroups, setAllGroups] = useState([]);
   const [refreshSignal, setRefreshSignal] = useState(false);
 
-  // Fetch all groups
   const fetchAllGroups = async () => {
     try {
       const res = await axios.get("http://localhost:3000/api/group/list");
@@ -18,7 +17,6 @@ export default function UserDashboard({ currentUserId }) {
     }
   };
 
-  // Fetch groups created by current user
   const fetchUserGroups = async () => {
     try {
       const res = await axios.get("http://localhost:3000/api/group/list");
@@ -51,7 +49,6 @@ export default function UserDashboard({ currentUserId }) {
   return (
     <div className="flex h-[calc(100vh-200px)] max-w-7xl mx-auto bg-white shadow-xl rounded-xl border border-gray-300 overflow-hidden">
       <div className="flex flex-1 flex-col lg:flex-row gap-0">
-        {/* Main Groups */}
         <main className="flex-1 p-6 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-maroon">Groups Available</h1>
@@ -75,7 +72,7 @@ export default function UserDashboard({ currentUserId }) {
                       <p className="font-semibold text-maroon">{g.group_name} ({g.topic})</p>
                       <p className="text-gray-700">{g.description}</p>
                       <p className="text-gray-500">{g.course} • {g.location}</p>
-                      <p className="text-gray-500">Size: {g.size} • Space: {g.current_members}</p>
+                      <p>Size: {g.size} • Space Available: {g.space_available - g.current_members}</p>
                     </div>
                     <button
                       disabled={isFull}

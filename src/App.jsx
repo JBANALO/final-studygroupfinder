@@ -1,4 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import LoginPage from "./pages/auth/LoginPage.jsx";
 import CreateAccount from "./pages/auth/CreateAccount.jsx";
 import VerificationPage from "./pages/auth/VerificationPage.jsx";
@@ -30,39 +32,54 @@ import AdminPrivateRoute from "./routes/AdminPrivateRoute.jsx";
 
 function App() {
   return (
-    <Router>
-      <Routes>
-        <Route path="/" element={<CreateAccount />} />
-        <Route path="/verify" element={<VerificationPage />} />
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
-        <Route path="/reset-password/:token" element={<ResetPassword />} />
+    <>
+      {/* Toast container must be inside the app tree */}
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3000} 
+        hideProgressBar={false} 
+        newestOnTop={false} 
+        closeOnClick 
+        rtl={false} 
+        pauseOnFocusLoss 
+        draggable 
+        pauseOnHover 
+      />
 
-        <Route element={<PageLayout />}>
-          <Route path="/user-dashboard" element={<Dashboard />} />
-          <Route path="/inbox" element={<InboxPage />} />
-          <Route path="/group-chat" element={<GroupChatPage />} />
-          <Route path="/create-group" element={<CreateGroupPage />} />
-          <Route path="/schedules" element={<SchedulesPage />} />
-          <Route path="/my-study-groups" element={<MyStudyGroupsPage />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/contacts" element={<ContactsPage />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/policies" element={<PoliciesPage />} />
-        </Route>
+      <Router>
+        <Routes>
+          <Route path="/" element={<CreateAccount />} />
+          <Route path="/verify" element={<VerificationPage />} />
+          <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
 
-        <Route path="/admin" element={<AdminLayout />}>
-          <Route element={<AdminPrivateRoute />}>
-            <Route path="dashboard" element={<AdminDashboard />} />
-            <Route path="manage-users" element={<ManageUsers />} />
-            <Route path="manage-groups" element={<ManageGroups />} />
-            <Route path="reports" element={<Reports />} />
-            <Route path="settings" element={<AdminSettings />} />
+          <Route element={<PageLayout />}>
+            <Route path="/user-dashboard" element={<Dashboard />} />
+            <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/group-chat" element={<GroupChatPage />} />
+            <Route path="/create-group" element={<CreateGroupPage />} />
+            <Route path="/schedules" element={<SchedulesPage />} />
+            <Route path="/my-study-groups" element={<MyStudyGroupsPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/contacts" element={<ContactsPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/policies" element={<PoliciesPage />} />
           </Route>
-        </Route>
-      </Routes>
-    </Router>
+
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route element={<AdminPrivateRoute />}>
+              <Route path="dashboard" element={<AdminDashboard />} />
+              <Route path="manage-users" element={<ManageUsers />} />
+              <Route path="manage-groups" element={<ManageGroups />} />
+              <Route path="reports" element={<Reports />} />
+              <Route path="settings" element={<AdminSettings />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Router>
+    </>
   );
 }
 
