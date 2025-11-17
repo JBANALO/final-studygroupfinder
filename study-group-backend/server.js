@@ -5,6 +5,7 @@ import cors from "cors";
 import authRoutes from "./routes/authRoutes.js";
 import googleRoutes from "./routes/googleRoutes.js";
 import passwordRoutes from "./routes/passwordRoutes.js";
+import groupRoutes from "./routes/groupRoutes.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(cors({
 app.use("/api/auth", authRoutes);
 app.use("/api/auth", googleRoutes);
 app.use('/api/password', passwordRoutes);
+app.use("/api/groups", groupRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5000;
