@@ -3,7 +3,7 @@ import axios from "axios";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-export default function CreateGroupPage() {
+export default function CreateGroupPage({ onGroupCreated }) {
   const [groupName, setGroupName] = useState("");
   const [description, setDescription] = useState("");
   const [course, setCourse] = useState("");
@@ -11,9 +11,8 @@ export default function CreateGroupPage() {
   const [location, setLocation] = useState("");
   const [size, setSize] = useState("");
   const [spaceAvailable, setSpaceAvailable] = useState("");
-  const [message, setMessage] = useState(""); 
 
-  const createdBy = 1; 
+  const createdBy = 1; // Replace with logged-in user ID
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -32,6 +31,7 @@ export default function CreateGroupPage() {
 
       toast.success(response.data.message || "Group created successfully!");
 
+      // Reset form
       setGroupName("");
       setDescription("");
       setCourse("");
@@ -39,6 +39,9 @@ export default function CreateGroupPage() {
       setLocation("");
       setSize("");
       setSpaceAvailable("");
+
+      // Pass newly created group to parent
+      if (onGroupCreated) onGroupCreated(response.data.group);
 
     } catch (error) {
       console.error(error);
@@ -58,6 +61,7 @@ export default function CreateGroupPage() {
             value={groupName}
             onChange={(e) => setGroupName(e.target.value)}
             className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
+            required
           />
 
           <textarea
@@ -69,7 +73,7 @@ export default function CreateGroupPage() {
 
           <input
             type="text"
-            placeholder="Course (e.g., Math 143)"
+            placeholder="Course"
             value={course}
             onChange={(e) => setCourse(e.target.value)}
             className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
@@ -77,7 +81,7 @@ export default function CreateGroupPage() {
 
           <input
             type="text"
-            placeholder="Topic (e.g., Chapter 5: Algebraic Expressions)"
+            placeholder="Topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
@@ -85,7 +89,7 @@ export default function CreateGroupPage() {
 
           <input
             type="text"
-            placeholder="Location (e.g., Library Room 2)"
+            placeholder="Location"
             value={location}
             onChange={(e) => setLocation(e.target.value)}
             className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
@@ -94,14 +98,14 @@ export default function CreateGroupPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <input
               type="number"
-              placeholder="Group Size (e.g., 8)"
+              placeholder="Group Size"
               value={size}
               onChange={(e) => setSize(e.target.value)}
               className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
             />
             <input
               type="number"
-              placeholder="Space Available (e.g., 3)"
+              placeholder="Space Available"
               value={spaceAvailable}
               onChange={(e) => setSpaceAvailable(e.target.value)}
               className="w-full p-3 rounded bg-gray-200 focus:ring-2 focus:ring-gold"
