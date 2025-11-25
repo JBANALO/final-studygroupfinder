@@ -1,327 +1,727 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "axios";
-import { io } from "socket.io-client";
+import io from "socket.io-client";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import {
-  UsersIcon,
-  DocumentTextIcon,
-  MapPinIcon,
-  CalendarIcon,
+  UserGroupIcon,
+  PaperClipIcon,
+  XMarkIcon,
   ChatBubbleLeftEllipsisIcon,
-  ArrowUpTrayIcon,
-  PhotoIcon,
-  DocumentTextIcon as DocIcon,
-  UserPlusIcon,
-  CheckBadgeIcon,
-  ClockIcon,
-  CheckCircleIcon,
-} from "@heroicons/react/24/solid";
-
-const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+  PlusIcon,
+  BellAlertIcon,
+} from "@heroicons/react/24/outline";
 
 export default function JoinViewPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const userId = currentUser?.id ? parseInt(currentUser.id) : null;
+  const userId = currentUser?.id;
   const userName = currentUser?.username || "You";
 
   const [group, setGroup] = useState(null);
-  const [userStatus, setUserStatus] = useState("loading"); // loading | none | pending | approved
+  const [userStatus, setUserStatus] = useState("none");
   const [messages, setMessages] = useState([]);
   const [events, setEvents] = useState([]);
   const [inputText, setInputText] = useState("");
+  const [announcements, setAnnouncements] = useState([]);
+  const [showModal, setShowModal] = useState(false);
+  const [showAnnouncementsModal, setShowAnnouncements] = useState(false);
   const fileInputRef = useRef(null);
 
-  // Load group + membership status
-  useEffect(() => {
-    const loadGroupAndStatus = async () => {
-      if (!userId || !groupId) return;
+  const [title, setTitle] = useState("");
+  const [start, setStart] = useState("");
+  const [end, setEnd] = useState("");
+  const [location, setLocation] = useState("");
+  const [description, setDescription] = useState("");
 
+  const [meetingType, setMeetingType] = useState("physical");
+  const [meetingLink, setMeetingLink] = useState("");
+
+  const [announceTitle, setAnnounceTitle] = useState("");
+  const [announceDesc, setAnnounceDesc] = useState("");
+
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+  const closeModal = () => setSelectedAnnouncement(null);
+
+  const lastMessageRef = useRef(null);
+
+  const socketRef = useRef(null);
+
+  // --- Load group, messages, schedules & setup socket ---
+  useEffect(() => {
+    if (!userId || !groupId) return;
+
+    const loadGroup = async () => {
       try {
-        // 1. Load group
-        const allRes = await axios.get("http://localhost:5000/api/group/all");
-        const foundGroup = allRes.data.data.find(g => g.id === parseInt(groupId));
+        const allGroupsRes = await axios.get("http://localhost:5000/api/group/all");
+        const foundGroup = allGroupsRes.data.data.find(g => g.id === parseInt(groupId));
+
         if (!foundGroup) {
-          alert("Group not found");
+          toast.error("Group not found or not accessible");
           navigate("/dashboard");
           return;
         }
         setGroup(foundGroup);
 
-        // 2. Check membership status from group_members table
-        const memberRes = await axios.get(`http://localhost:5000/api/group/member-status/${groupId}/${userId}`);
-        const status = memberRes.data.status || "none";
+        // Check if approved
+        let status = "none";
+        try {
+          const joinedRes = await axios.get(`http://localhost:5000/api/group/my-joined/${userId}`);
+          const joinedIds = joinedRes.data.data?.map(g => g.id) || [];
+          if (joinedIds.includes(parseInt(groupId))) status = "approved";
+        } catch {}
+
+        if (status !== "approved") {
+          try {
+            const pendingRes = await axios.get(
+              "http://localhost:5000/api/group/pending-members-for-user",
+              { params: { userId } }
+            );
+            const pendingIds = pendingRes.data.data || [];
+            if (pendingIds.includes(parseInt(groupId))) status = "pending";
+          } catch {}
+        }
+
         setUserStatus(status);
 
-        // 3. Load chat & events only if approved or creator
+        // Load messages, events, announcements if approved or creator
         if (status === "approved" || foundGroup.created_by === userId) {
-          const [msgRes, eventRes] = await Promise.all([
-            axios.get(`http://localhost:5000/api/messages/${groupId}/messages`).catch(() => ({ data: { messages: [] } })),
-            axios.get(`http://localhost:5000/api/calendar/group/${groupId}`).catch(() => ({ data: { schedules: [] } }))
-          ]);
+          // --- Messages ---
+          try {
+            const msgRes = await axios.get(`http://localhost:5000/api/messages/${groupId}/messages`);
+            const mappedMsgs = msgRes.data.messages.map(m => ({
+              ...m,
+              senderName: m.sender_name || (m.sender_id === userId ? userName : "Unknown"),
+            }));
+            setMessages(mappedMsgs);
+          } catch { setMessages([]); }
 
-          setMessages(msgRes.data.messages || []);
-          setEvents((eventRes.data.schedules || []).map(s => ({
-            ...s,
-            start: new Date(s.start),
-            end: new Date(s.end)
-          })));
+          // --- Events ---
+          try {
+            const schedRes = await axios.get(`http://localhost:5000/api/calendar/group/${groupId}`);
+            const schedules = schedRes.data.schedules || [];
+            setEvents(schedules.map(s => ({
+              ...s,
+              start: new Date(s.start),
+              end: new Date(s.end),
+              meetingType: (s.meetingType || "physical").toLowerCase(),
+              meetingLink: s.meetingLink || null,
+              color: "bg-yellow-100"
+            })));
+          } catch { setEvents([]); }
+
+          // --- Announcements ---
+          try {
+            const annRes = await axios.get(`http://localhost:5000/api/announcements/group/${groupId}`);
+            setAnnouncements(annRes.data.announcements || []);
+          } catch (err) {
+            console.error("Failed to load announcements:", err);
+          }
         }
+
       } catch (err) {
-        console.error("Load error:", err);
-        alert("Failed to load group");
+        console.error("Failed to load group:", err);
+        toast.error("Failed to load group");
+        navigate("/user-dashboard");
       }
     };
 
-    loadGroupAndStatus();
+    loadGroup();
 
-    // Socket
-    socket.emit("join_group", groupId);
+    // --- Initialize socket ---
+    const socket = io("http://localhost:5000", { 
+      transports: ["websocket", "polling"],
+      withCredentials: true 
+    });
+    socketRef.current = socket;
+    socket.emit("join_group", parseInt(groupId));
+
+    // --- Socket listeners ---
     socket.on("receive_message", (data) => {
-      if (data.groupId === parseInt(groupId)) {
-        setMessages(prev => [...prev, data.message]);
+      const { groupId: receivedGroupId, message } = data;
+      if (parseInt(receivedGroupId) === parseInt(groupId)) {
+        setMessages(prev => [...prev, message]);
+      }
+    });
+
+    socket.on("new_schedule", (newSchedule) => {
+      if (newSchedule.groupId === parseInt(groupId)) {
+        setEvents(prev => {
+          if (prev.some(e => e.id === newSchedule.id)) return prev;
+          return [...prev, {
+            ...newSchedule,
+            start: new Date(newSchedule.start),
+            end: new Date(newSchedule.end),
+            meetingType: (newSchedule.meetingType || "physical").toLowerCase(),
+            meetingLink: newSchedule.meetingLink || null,
+            color: "bg-yellow-100"
+          }];
+        });
+      }
+    });
+
+    socket.on("newAnnouncement", (announcement) => {
+      if (announcement.group_id === parseInt(groupId)) {
+        setAnnouncements(prev => [announcement, ...prev]);
+      }
+    });
+
+    socket.on("join_request_approved", ({ groupId: gid, userId: uid }) => {
+      if (gid === parseInt(groupId) && uid === userId) {
+        setUserStatus("approved");
       }
     });
 
     return () => {
-      socket.emit("leave_group", groupId);
-      socket.off("receive_message");
+      socket.emit("leave_group", parseInt(groupId));
+      socket.disconnect();
     };
-  }, [groupId, userId, navigate]);
+  }, [groupId, userId, userName, navigate]);
 
-  const handleJoinGroup = async () => {
-    try {
-      await axios.post("http://localhost:5000/api/group/join", {
-        groupId: parseInt(groupId),
-        userId
-      });
-      setUserStatus("pending");
-      alert("Join request sent! Waiting for approval.");
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to send request");
-    }
-  };
 
   const sendMessage = () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && !fileInputRef.current?.files?.[0]) return;
+
     const msg = {
-      sender: userName,
-      text: inputText.trim(),
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      groupId: parseInt(groupId),
+      sender: userId,
+      text: inputText.trim() || null,
+      fileLink: null,
+      time: new Date().toISOString()
     };
-    socket.emit("send_message", { groupId, message: msg });
-    setMessages(prev => [...prev, msg]);
+
+    socketRef.current.emit("send_message", msg);
     setInputText("");
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const formData = new FormData();
-    formData.append("file", file);
-    axios.post("http://localhost:5000/api/upload", formData)
-      .then(res => {
-        const msg = {
-          sender: userName,
-          text: file.name,
-          fileLink: res.data.fileUrl,
-          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        };
-        socket.emit("send_message", { groupId, message: msg });
-        setMessages(prev => [...prev, msg]);
-      })
-      .catch(() => alert("Upload failed"));
+  // --- File upload ---
+const handleFileUpload = async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  try {
+    const res = await axios.post("http://localhost:5000/api/upload", formData);
+    const msg = {
+      groupId: parseInt(groupId),
+      sender: userId,
+      text: file.name,
+      fileLink: res.data.fileUrl,
+      time: new Date().toISOString()
+    };
+    socketRef.current.emit("send_message", msg);
+    e.target.value = null;
+
+    toast.success(`File "${file.name}" uploaded successfully!`);
+  } catch {
+    toast.error(`Failed to upload file "${file.name}".`);
+  }
+};
+
+  // --- Join group ---
+  const handleJoinGroup = async () => {
+    try {
+      await axios.post(`http://localhost:5000/api/group/join`, { groupId: parseInt(groupId), userId });
+      setUserStatus("pending");
+      toast.success("Join request sent! Waiting for creator approval.");
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to send join request");
+    }
   };
 
-  if (!group) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-16 w-16 border-8 border-[#800000] border-t-transparent"></div>
-      </div>
-    );
-  }
+  const handleCreateSchedule = async (e) => {
+    e.preventDefault();
 
-  const isCreator = group.created_by === userId;
-  const canAccess = userStatus === "approved" || isCreator;
+    if (!title || !start || !end) return toast.error("Fill all required fields!");
+    if (meetingType === "physical" && !location.trim()) {
+      return toast.error("Please enter a location for physical meetings!");
+    }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-maroon-50 to-gray-100">
-      <div className="max-w-7xl mx-auto p-6">
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+    const startDate = new Date(start);
+    const endDate = new Date(end);
 
-          {/* Header */}
-          <div className="bg-gradient-to-r from-[#800000] to-[#a00000] text-white p-10">
-            <div className="flex justify-between items-start">
-              <div>
-                <h1 className="text-5xl font-bold mb-4">{group.group_name}</h1>
-                <div className="flex gap-8 text-lg">
-                  <div className="flex items-center gap-3">
-                    <UsersIcon className="w-7 h-7" />
-                    <span>{group.current_members} / {group.size} members</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <DocumentTextIcon className="w-7 h-7" />
-                    <span>{group.course} • {group.topic}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <MapPinIcon className="w-7 h-7" />
-                    <span>{group.location}</span>
-                  </div>
-                </div>
+    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+      return toast.error("Invalid start or end date/time!");
+    }
+    if (startDate >= endDate) {
+      return toast.error("End time must be after start time!");
+    }
+
+    try {
+      const payload = {
+        title,
+        start: startDate.toISOString(),
+        end: endDate.toISOString(),
+        location: meetingType === "physical" ? location : "Online",
+        description,
+        meetingType,
+        meetingLink: meetingType === "online" ? meetingLink : null
+      };
+
+      const res = await axios.post(
+        `http://localhost:5000/api/calendar/group/${groupId}`,
+        payload
+      );
+
+      const newEvent = res.data.schedule;
+      socketRef.current.emit("schedule_created", { ...newEvent, groupId: parseInt(groupId) });
+
+      setTitle(""); setStart(""); setEnd(""); setLocation(""); setDescription(""); setMeetingType("physical"); setMeetingLink(newEvent.meetingLink || "");
+      setShowModal(false);
+
+      if (newEvent.meetingLink) {
+        toast.success(`Study date created! Google Meet link: ${newEvent.meetingLink}`);
+      } else {
+        toast.success("Study date created!");
+      }
+
+    } catch (err) {
+      console.error("Schedule creation failed:", err);
+      toast.error("Failed to create schedule. Check console for details.");
+    }
+  };
+
+  const handlePostAnnouncement = async () => {
+    try {
+      await axios.post("http://localhost:5000/api/announcements/create", {
+        groupId: group.id,
+        userId: currentUser.id,
+        title: announceTitle,
+        description: announceDesc,
+      });
+
+      toast.success("Announcement posted successfully!");
+      setShowAnnouncements(false);
+      setAnnounceTitle("");
+      setAnnounceDesc("");
+
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to post announcement.");
+    }
+  };
+
+useEffect(() => {
+  setTimeout(() => {
+    lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, 0);
+}, [messages]);
+
+  if (!group) return <div className="flex items-center font-bold justify-center min-h-screen">Loading group...</div>;
+
+return (
+  <div className="flex h-[calc(100vh-12rem)] max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
+    {/* LEFT PANEL */}
+    <div className="flex-1 flex flex-col">
+      <div className="p-8 border-b">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h1 className="text-4xl font-extrabold text-[#800000] leading-tight">{group.group_name}</h1>
+            <p className="text-gray-700 mt-2 text-base leading-relaxed">{group.description}</p>
+          </div>
+          <span className="bg-yellow-400 text-[#800000] px-6 py-3 rounded-full font-semibold text-lg">{group.topic}</span>
+        </div>
+
+        {/* Members Section */}
+        <div className="flex flex-col gap-2">
+          {/* Member usernames */}
+          <div className="flex flex-wrap gap-3 mb-3">
+            {group.members?.map((m, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-2 bg-gray-100 px-3 py-1 rounded-full text-sm font-medium"
+              >
+                {m.username}
               </div>
-              <div className="text-right">
-                <p className="text-sm opacity-90">Created by</p>
-                <p className="text-2xl font-bold">{group.creator_name}</p>
-              </div>
-            </div>
+            ))}
           </div>
 
-          <div className="p-10 grid grid-cols-1 lg:grid-cols-3 gap-10">
-
-            {/* Left: Info + Status */}
-            <div className="lg:col-span-2 space-y-8">
-
-              {/* Membership Status */}
-              <div className="bg-gradient-to-r from-gray-50 to-gray-100 rounded-2xl p-10 text-center border border-gray-300">
-                {userStatus === "loading" && (
-                  <div className="py-20">
-                    <div className="animate-spin inline-block w-16 h-16 border-8 border-[#800000] rounded-full border-t-transparent"></div>
-                  </div>
-                )}
-
-                {userStatus === "approved" && (
-                  <div>
-                    <CheckBadgeIcon className="w-32 h-32 text-green-500 mx-auto mb-6" />
-                    <h2 className="text-4xl font-bold text-green-600">You're a Member!</h2>
-                    <p className="text-xl text-gray-600 mt-4">Welcome! You can now chat and view events.</p>
-                  </div>
-                )}
-
-                {userStatus === "pending" && (
-                  <div>
-                    <ClockIcon className="w-32 h-32 text-yellow-500 mx-auto mb-6" />
-                    <h2 className="text-4xl font-bold text-yellow-600">Request Pending</h2>
-                    <p className="text-xl text-gray-600 mt-4">Your request is waiting for approval.</p>
-                  </div>
-                )}
-
-                {userStatus === "none" && !isCreator && (
-                  <div>
-                    <UserPlusIcon className="w-32 h-32 text-blue-600 mx-auto mb-8" />
-                    <h2 className="text-3xl font-bold text-gray-800 mb-6">Want to join this group?</h2>
-                    <button
-                      onClick={handleJoinGroup}
-                      className="bg-[#800000] hover:bg-[#600000] text-white text-2xl font-bold px-16 py-6 rounded-2xl shadow-2xl transform hover:scale-105 transition-all"
-                    >
-                      Join Group
-                    </button>
-                  </div>
-                )}
-
-                {isCreator && (
-                  <div>
-                    <CheckCircleIcon className="w-32 h-32 text-purple-600 mx-auto mb-6" />
-                    <h2 className="text-4xl font-bold text-purple-700">You are the Creator</h2>
-                    <p className="text-xl text-gray-600 mt-4">You have full access to this group.</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              <div className="bg-white p-8 rounded-2xl border border-gray-200">
-                <h3 className="text-2xl font-bold text-[#800000] mb-6">About This Group</h3>
-                <p className="text-lg text-gray-700 leading-relaxed">{group.description || "No description provided."}</p>
-              </div>
-
-              {/* Events */}
-              {canAccess && events.length > 0 && (
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 p-8 rounded-2xl border border-yellow-300">
-                  <h3 className="text-3xl font-bold text-[#800000] mb-8 flex items-center gap-4">
-                    <CalendarIcon className="w-10 h-10" /> Upcoming Sessions
-                  </h3>
-                  <div className="space-y-6">
-                    {events.map((e, i) => (
-                      <div key={i} className="bg-white p-6 rounded-xl shadow-lg">
-                        <h4 className="text-2xl font-bold text-[#800000]">{e.title}</h4>
-                        <p className="mt-3 text-gray-700 flex items-center gap-3">
-                          <ClockIcon className="w-6 h-6 text-blue-600" />
-                          {e.start.toLocaleDateString()} • {e.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} - {e.end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                        </p>
-                        {e.location && (
-                          <p className="mt-2 text-gray-600 flex items-center gap-3">
-                            <MapPinIcon className="w-5 h-5 text-red-600" />
-                            {e.location}
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Chat */}
-            {canAccess && (
-              <div className="bg-gray-50 rounded-2xl shadow-xl border border-gray-300 flex flex-col h-[700px]">
-                <div className="bg-gradient-to-r from-[#800000] to-[#a00000] text-white p-6">
-                  <h3 className="text-2xl font-bold flex items-center gap-4">
-                    <ChatBubbleLeftEllipsisIcon className="w-9 h-9" />
-                    Group Chat
-                  </h3>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {messages.length === 0 ? (
-                    <div className="text-center py-20 text-gray-500">
-                      <ChatBubbleLeftEllipsisIcon className="w-20 h-20 mx-auto mb-4 opacity-30" />
-                      <p className="text-xl">No messages yet. Say hi!</p>
+          {/* Leave Group Button */}
+          <div className="flex gap-2 -mt-3 justify-end">
+          <div className="flex items-center gap-2 text-sm text-gray-800 mb-2 mr-28">
+            <UserGroupIcon className="w-7 h-7 text-[#800000]" />
+            <span className="font-medium">Members ({group.current_members})</span>
+          </div>
+            <button
+              className="bg-red-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700"
+              onClick={() => {
+                const LeaveConfirm = ({ closeToast }) => (
+                  <div className="flex flex-col gap-2">
+                    <span>Are you sure you want to leave this group?</span>
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button
+                        onClick={() => closeToast()}
+                        className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300 text-sm"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          closeToast();
+                          try {
+                            await axios.post("http://localhost:5000/api/group/leave", {
+                              userId: currentUser.id,
+                              groupId: group.id,
+                            });
+                            toast.success("You have left the group.");
+                            navigate("/user-dashboard");
+                          } catch (err) {
+                            console.error("Leave group failed:", err);
+                            toast.error("Failed to leave the group. Please try again.");
+                          }
+                        }}
+                        className="px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700 text-sm"
+                      >
+                        Confirm
+                      </button>
                     </div>
-                  ) : (
-                    messages.map((msg, i) => (
-                      <div key={i} className={`flex flex-col ${msg.sender === userName ? "items-end" : "items-start"}`}>
-                        <span className="text-xs text-gray-500 mb-1">{msg.sender}</span>
-                        <div className={`max-w-xs px-6 py-4 rounded-3xl shadow-md ${msg.sender === userName ? "bg-[#800000] text-white" : "bg-white border"}`}>
-                          {msg.fileLink ? (
-                            <a href={msg.fileLink} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 underline">
-                              {msg.text.match(/\.(png|jpg|jpeg)$/i) ? <PhotoIcon className="w-6 h-6" /> : <DocIcon className="w-6 h-6" />}
-                              {msg.text}
-                            </a>
-                          ) : (
-                            <p className="text-lg">{msg.text}</p>
-                          )}
-                          <p className="text-xs opacity-70 mt-2 text-right">{msg.time}</p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="p-6 border-t bg-white">
-                  <div className="flex gap-4 items-center">
-                    <button onClick={() => fileInputRef.current.click()} className="p-4 bg-gray-100 hover:bg-gray-200 rounded-xl">
-                      <ArrowUpTrayIcon className="w-7 h-7 text-gray-600" />
-                    </button>
-                    <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
-                    <input
-                      type="text"
-                      value={inputText}
-                      onChange={e => setInputText(e.target.value)}
-                      onKeyDown={e => e.key === "Enter" && !e.shiftKey && sendMessage()}
-                      placeholder="Type a message..."
-                      className="flex-1 px-6 py-4 border-2 border-gray-300 rounded-xl focus:border-[#800000] outline-none text-lg"
-                    />
-                    <button onClick={sendMessage} className="bg-[#800000] hover:bg-[#600000] text-white px-8 py-4 rounded-xl font-bold text-lg">
-                      Send
-                    </button>
                   </div>
-                </div>
-              </div>
-            )}
+                );
+
+                toast.info(<LeaveConfirm />, {
+                  autoClose: false,
+                  closeButton: false,
+                  closeOnClick: false,
+                });
+              }}
+            >
+              Leave Group
+            </button>
+          <button 
+            onClick={() => setShowAnnouncements(true)} 
+            className="bg-[#b61818] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#600000] flex items-center gap-2"
+          >
+            <BellAlertIcon className="w-5 h-5" /> Post Announcements
+          </button>
+          <button 
+            onClick={() => setShowModal(true)} 
+            className="bg-[#800000] text-white px-6 py-3 rounded-lg font-medium hover:bg-[#600000] flex items-center gap-2"
+          >
+            <PlusIcon className="w-5 h-5" /> Schedule Meeting
+          </button>
           </div>
         </div>
       </div>
+
+      <div className="flex-1 p-8 overflow-y-auto scrollbar-hide">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-semibold text-[#800000] tracking-wide">
+            Study Dates and Announcements
+          </h2>
+        </div>
+
+          <div className="space-y-4">
+            {events.length === 0 && announcements.length === 0 ? (
+              <p className="text-center text-gray-500 py-12 text-base">
+                No upcoming study dates or announcements
+              </p>
+            ) : (
+              (() => {
+                const combinedEvents = [
+                  // Real study meetings
+                  ...events.map(e => ({
+                    ...e,
+                    isAnnouncement: false,
+                    meetingType: (e.meetingType || "physical").toLowerCase(),
+                    meetingLink: e.meetingLink || null,
+                    color: "bg-green-100",
+                  })),
+
+                  // Announcements
+                  ...announcements.map(a => ({
+                    title: a.title,
+                    start: new Date(a.created_at),
+                    end: new Date(a.created_at),
+                    color: "bg-blue-100",
+                    description: a.description || "",
+                    meetingType: null,
+                    meetingLink: null,
+                    location: "Announcement",
+                    isAnnouncement: true,
+                  }))
+                ].sort((a, b) => a.start - b.start);
+
+                console.log("Combined events for debugging:", combinedEvents); // Debug
+
+                return combinedEvents.map((event, i) => (
+                  <div
+                    key={i}
+                    className={`${event.color} p-3 rounded-lg border border-gray-500 flex flex-col gap-2 cursor-pointer hover:shadow-md`}
+                    onClick={() => event.isAnnouncement && setSelectedAnnouncement(event)}
+                  >
+                    <h3 className="font-semibold text-[#800000] text-lg">{event.title}</h3>
+                    <p className="text-sm text-gray-700 tracking-wide">
+                      {event.start.toDateString()} •{" "}
+                      {event.start.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} -{" "}
+                      {event.end.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+
+          {event.meetingType === "online" && event.meetingLink ? (
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              <span className="font-medium">Online Meeting:</span>
+
+              <button
+                type="button"
+                onClick={() => window.open(event.meetingLink, "_blank")}
+                className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600 text-xs"
+              >
+                Join Meeting
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(event.meetingLink);
+                  alert("Link copied to clipboard!");
+                }}
+                className="bg-gray-300 text-gray-800 px-3 py-1 rounded hover:bg-gray-400 text-xs"
+              >
+                Copy Link
+              </button>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600">{event.location}</p>
+          )}
+                    {/* Description */}
+                    {event.description && !event.isAnnouncement && (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        <strong>{event.description}</strong>
+                      </p>
+                    )}
+                  </div>
+                ));
+              })()
+            )}
+          </div>
+
+        {/* Announcement Modal */}
+        {selectedAnnouncement && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-11/12 md:w-1/2 p-6 relative max-h-[80vh] overflow-y-auto">
+              <button
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+                onClick={closeModal}
+              >
+                ✕
+              </button>
+              <h2 className="text-xl font-bold text-[#800000] mb-4">
+                {selectedAnnouncement.title}
+              </h2>
+              <p className="text-gray-700 whitespace-pre-wrap">{selectedAnnouncement.description}</p>
+              <p className="text-xs text-gray-400 mt-4">
+                {selectedAnnouncement.start.toLocaleString()}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    {/* RIGHT PANEL: Chat */}
+    <aside className="w-96 border-l border-gray-300 bg-gray-50 flex flex-col">
+      <div className="p-4 border-b bg-white flex items-center gap-3">
+        <ChatBubbleLeftEllipsisIcon className="w-6 h-6 text-[#800000]" />
+        <h3 className="font-semibold text-[#800000] text-base tracking-wide">Group Chat</h3>
+      </div>
+
+      <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
+        {messages.map((msg, i) => {
+          const isMe = msg.sender_id === userId;
+          const isLast = i === messages.length - 1;
+          return (
+            <div key={i} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
+              <span className="text-xs text-gray-500 mb-1 font-medium">{msg.sender_name}</span>
+              <div className={`px-4 py-2 rounded-2xl max-w-xs ${isMe ? "bg-[#800000] text-white" : "bg-gray-200"} text-sm leading-snug`}>
+                {msg.fileLink ? (
+                  <a href={msg.fileLink} target="_blank" rel="noopener noreferrer" className="underline flex items-center gap-1">
+                    <PaperClipIcon className="w-4 h-4" /> {msg.text}
+                  </a>
+                ) : (
+                  msg.text
+                )}
+                <p className="text-xs opacity-70 mt-1">
+                  {msg.time ? new Date(msg.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="p-4 border-t flex gap-2">
+        <button onClick={() => fileInputRef.current.click()} className="p-2 hover:bg-gray-200 rounded">
+          <PaperClipIcon className="w-6 h-6 text-gray-600" />
+        </button>
+        <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden" />
+        <input
+          type="text"
+          value={inputText}
+          onChange={e => setInputText(e.target.value)}
+          onKeyDown={e => e.key === "Enter" && sendMessage()}
+          placeholder="Type a message..."
+          className="flex-1 px-4 py-2.5 border rounded-lg focus:ring-2 focus:ring-[#800000] outline-none text-sm"
+        />
+        <button onClick={sendMessage} className="bg-[#800000] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#600000] text-sm">Send</button>
+      </div>
+    </aside>
+
+{/* Schedule Modal — Perfectly Centered */}
+{showModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl p-8 w-96 shadow-2xl">
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-[#800000] tracking-wide">Schedule Meeting</h2>
+        <button onClick={() => setShowModal(false)}>
+          <XMarkIcon className="w-6 h-6 text-gray-500 hover:text-red-600" />
+        </button>
+      </div>
+
+      <form onSubmit={handleCreateSchedule} className="space-y-4 text-sm">
+        <input
+          type="text"
+          placeholder="Title"
+          value={title}
+          onChange={e => setTitle(e.target.value)}
+          className="w-full p-3 border rounded-lg"
+          required
+        />
+
+        <input
+          type="datetime-local"
+          value={start}
+          onChange={e => setStart(e.target.value)}
+          className="w-full p-3 border rounded-lg"
+          required
+        />
+
+        <input
+          type="datetime-local"
+          value={end}
+          onChange={e => setEnd(e.target.value)}
+          className="w-full p-3 border rounded-lg"
+          required
+        />
+
+        <textarea
+          placeholder="Description (optional)"
+          value={description}
+          onChange={e => setDescription(e.target.value)}
+          className="w-full p-3 border rounded-lg h-24"
+        ></textarea>
+
+{/* Meeting Type Selector */}
+<div className="flex items-center gap-4">
+  <label className="text-gray-700 font-medium">Meeting Type:</label>
+  <select
+    value={meetingType}
+    onChange={e => setMeetingType(e.target.value)}
+    className="border p-2 rounded-lg text-sm flex-1"
+  >
+    <option value="physical">Physical / In-person</option>
+    <option value="online">Online / Virtual</option>
+  </select>
+</div>
+
+{/* Location (required if physical) */}
+{meetingType === "physical" && (
+  <input
+    type="text"
+    placeholder="Location (required if physical)"
+    value={location}
+    onChange={e => setLocation(e.target.value)}
+    className="w-full p-3 border rounded-lg"
+    required
+  />
+)}
+
+{/* Meeting Link (display only if online) */}
+{meetingType === "online" && (
+  <div className="flex items-center gap-2 text-sm text-gray-700">
+    <span className="font-medium">Online Meeting:</span>
+    <input
+      type="text"
+      readOnly
+      value={meetingLink || "Generating link..."}
+      className="flex-1 border p-2 rounded text-xs"
+    />
+    {meetingLink && (
+      <button
+        type="button"
+        onClick={() => navigator.clipboard.writeText(meetingLink)}
+        className="bg-gray-300 px-2 py-1 rounded hover:bg-gray-400 text-xs"
+      >
+        Copy
+      </button>
+    )}
+  </div>
+)}
+        <button
+          type="submit"
+          className="w-full bg-[#800000] text-white py-3 rounded-lg font-semibold hover:bg-[#600000] text-sm"
+        >
+          Create Study Date
+        </button>
+      </form>
+    </div>
+  </div>
+)}
+
+{/* Announcements Modal */}
+{showAnnouncementsModal && (
+  <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl p-8 w-96 shadow-2xl">
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-semibold text-[#800000] tracking-wide">
+          Post Announcement
+        </h2>
+        <button onClick={() => setShowAnnouncements(false)}>
+          <XMarkIcon className="w-6 h-6 text-gray-500 hover:text-red-600" />
+        </button>
+      </div>
+
+      {/* Form */}
+      <input
+        type="text"
+        value={announceTitle}
+        onChange={(e) => setAnnounceTitle(e.target.value)}
+        placeholder="Announcement Title"
+        className="w-full border px-4 py-2 rounded-lg mb-4"
+      />
+      <textarea
+        value={announceDesc}
+        onChange={(e) => setAnnounceDesc(e.target.value)}
+        placeholder="Write your announcement..."
+        className="w-full border px-4 py-2 rounded-lg mb-4 h-28"
+      />
+
+      {/* Action Buttons */}
+      <div className="flex justify-end gap-3 mt-2">
+        <button
+          onClick={() => setShowAnnouncements(false)}
+          className="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+
+        <button
+          onClick={handlePostAnnouncement}
+          className="px-4 py-2 rounded-lg bg-[#800000] text-white hover:bg-[#600000]"
+        >
+          Post
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
     </div>
   );
 }

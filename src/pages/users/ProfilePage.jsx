@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { UserCircleIcon, CameraIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
 import axios from "axios";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile");
+  const [isSaved, setIsSaved] = useState(false);
   const [user, setUser] = useState({
     first_name: "",
     middle_name: "",
@@ -14,7 +17,7 @@ export default function ProfilePage() {
     profile_photo: ""
   });
   const [photoPreview, setPhotoPreview] = useState(null);
-  const [originalUser, setOriginalUser] = useState(null); // For cancel
+  const [originalUser, setOriginalUser] = useState(null); 
   const fileInputRef = useRef();
 
 useEffect(() => {
@@ -31,7 +34,7 @@ useEffect(() => {
       setPhotoPreview(res.data.profile_photo || null);
     } catch (err) {
       console.error("Error fetching user:", err);
-      alert("Failed to fetch user data. Please try again.");
+      toast.error("Failed to fetch user data. Please try again.");
     }
   };
 
@@ -72,16 +75,24 @@ const handleSave = async () => {
       }
     });
 
-    alert("Profile updated successfully!");
     setUser(res.data);
     setOriginalUser(res.data);
     setPhotoPreview(res.data.profile_photo || null);
     delete user.newPhotoFile;
+
+    // show toast
+    toast.success("Profile updated successfully!");
+
+    // change button temporarily
+    setIsSaved(true);
+    setTimeout(() => setIsSaved(false), 2500);
+
   } catch (err) {
-    console.error("Error updating profile:", err);
-    alert("Failed to update profile. Please try again.");
+    console.error(err);
+    toast.error("Failed to update profile.");
   }
 };
+
 
   // Cancel changes
   const handleCancel = () => {
@@ -93,11 +104,11 @@ const handleSave = async () => {
   };
 
   return (
-    <div className="flex h-[calc(100vh-200px)] w-full max-w-[90rem] mx-auto">
+    <div className="flex h-[calc(100vh-200px)] w-[1200px] max-w-[90rem] mx-auto">
       <div className="flex-1 bg-white shadow-xl rounded-xl border border-gray-300 overflow-hidden">
-        <div className="h-full overflow-y-auto">
+        <div className="h-full overflow-y-auto scrollbar-hide">
           <div className="p-8 lg:p-10">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-5xl mx-auto">
 
               {/* Tabs */}
               <div className="flex border-b border-gray-300 mb-8">
@@ -237,11 +248,9 @@ const handleSave = async () => {
               {/* Settings Tab */}
               {activeTab === "settings" && (
                 <div className="space-y-7">
-                  <div className="bg-amber-50 border border-amber-200 rounded-xl p-5">
-                    <p className="text-sm text-amber-800">
-                      <strong>Note:</strong> Email changes require verification. You’ll receive a confirmation link to your new email.
-                    </p>
-                  </div>
+                    <h3 className="text-2xl text-amber-800">
+                      Your Account Details
+                    </h3>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Current Email</label>
@@ -250,15 +259,6 @@ const handleSave = async () => {
                       value={user.email}
                       disabled
                       className="w-full p-3 rounded-lg bg-gray-200 border border-gray-300 text-gray-500 cursor-not-allowed"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">New Email</label>
-                    <input
-                      type="email"
-                      placeholder="Enter new WMSU email"
-                      className="w-full p-3 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold transition"
                     />
                   </div>
 
@@ -280,13 +280,8 @@ const handleSave = async () => {
                       />
                     </div>
                   </div>
-
-                  <button className="w-full bg-maroon text-white py-3.5 rounded-lg hover:brightness-110 transition font-medium">
-                    Update Account Settings
-                  </button>
                 </div>
               )}
-
             </div>
           </div>
         </div>

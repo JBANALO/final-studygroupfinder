@@ -21,10 +21,14 @@ import schedulesRoutes from "./routes/schedules.js";
 import adminRoutes from "./routes/admin/adminRoutes.js";
 import accountRoutes from "./routes/accountRoutes.js";
 import groupAdminRoutes from "./routes/admin/groupAdminRoutes.js";
+import userAdminRoutes from "./routes/admin/userAdminRoutes.js";
+import activityRoutes from "./routes/admin/activityRoutes.js";
 import notificationRoutes from "./routes/admin/notificationRoutes.js";
 import messageRoutes from "./routes/messages.js";
 import userRoutes from "./routes/userRoutes.js";
 import notifRoutes from "./routes/notifs.js";
+import announcementRoutes from "./routes/announcements.js";
+import dashboardRoutes from "./routes/admin/dashboardRoutes.js";
 
 dotenv.config();
 
@@ -74,12 +78,14 @@ app.use("/api/calendar", calendarRoutes);     // schedules / calendar
 app.use("/api/schedules", schedulesRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/admin", groupAdminRoutes);
+app.use("/api/user", userAdminRoutes);
+app.use("/api/admin/activities", activityRoutes);
+app.use("/api/admin/dashboard", dashboardRoutes);
 app.use("/api/notifications", notificationRoutes);
-
-
 app.use("/api/messages", messageRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/notifs", notifRoutes);
+app.use("/api/announcements", announcementRoutes);
 
 // === Socket.io Setup ===
 const io = new IOServer(server, {
@@ -103,25 +109,27 @@ io.on("connection", (socket) => {
     console.log(`User ${socket.id} joined group_${groupId}`);
   });
 
-  socket.on("send_message", async ({ groupId, message }) => {
+  socket.on("send_message", async ({ groupId, sender, text, fileLink }) => {
     try {
-      // 1. Save to DB using 'pool'
+      // 1. Save to DB
       const [result] = await pool.execute(
-        `INSERT INTO messages (group_id, sender, text, file_link, time)
+        `INSERT INTO group_messages (group_id, sender_id, text, file_link, time)
          VALUES (?, ?, ?, ?, NOW())`,
-        [groupId, message.sender, message.text || null, message.fileLink || null]
+        [groupId, sender, text || null, fileLink || null]
       );
 
-      // 2. Fetch formatted message
       const [newMsg] = await pool.execute(
         `SELECT 
-           id, 
-           sender, 
-           text, 
-           file_link AS fileLink,
-           DATE_FORMAT(time, '%l:%i %p') AS time
-         FROM messages 
-         WHERE id = ?`,
+          gm.id, 
+          gm.group_id, 
+          gm.sender_id,
+          gm.text, 
+          gm.file_link AS fileLink, 
+          gm.time, 
+          u.username AS sender_name
+         FROM group_messages gm
+         JOIN users u ON gm.sender_id = u.id
+         WHERE gm.id = ?`,
         [result.insertId]
       );
 
@@ -136,10 +144,16 @@ io.on("connection", (socket) => {
     }
   });
 
+  // 🔹 Real-time schedule listener
+  socket.on("schedule_created", (schedule) => {
+    if (!schedule.groupId) return;
+    socket.broadcast.to(`group_${schedule.groupId}`).emit("new_schedule", schedule);
+  });
+
   socket.on("disconnect", () => {
     console.log("User disconnected:", socket.id);
   });
-});
+}); // <-- this closes io.on("connection")
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`)); 
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));

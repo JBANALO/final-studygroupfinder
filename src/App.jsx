@@ -28,7 +28,6 @@ import AdminLogin from "./pages/admin/AdminLogin.jsx";
 import AdminDashboard from "./pages/admin/AdminDashboard.jsx";
 import ManageUsers from "./pages/admin/ManageUsers.jsx";
 import ManageGroups from "./pages/admin/ManageGroups.jsx";
-import Reports from "./pages/admin/Reports.jsx";
 import AdminSettings from "./pages/admin/Settings.jsx";
 
 // Layouts & Routes
@@ -96,7 +95,6 @@ function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="manage-users" element={<ManageUsers />} />
             <Route path="manage-groups" element={<ManageGroups />} />
-            <Route path="reports" element={<Reports />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>
 

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { io } from "socket.io-client";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
 
@@ -16,11 +18,10 @@ export default function UserDashboard() {
   const [joinedGroups, setJoinedGroups] = useState([]); // approved groups
   const [pendingRequests, setPendingRequests] = useState([]); // pending approval
 
-  // Fetch all groups
 const fetchGroups = async () => {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user.id; // ← REMOVE HARDCODE 25
+    const userId = user.id;
 
     if (!userId) {
       console.log("No user logged in");
@@ -28,17 +29,21 @@ const fetchGroups = async () => {
     }
 
     const [allRes, myRes] = await Promise.all([
-      axios.get("http://localhost:5000/api/group/list"), // only approved
+      axios.get("http://localhost:5000/api/group/list"),
       axios.get(`http://localhost:5000/api/group/my-groups/${userId}`)
     ]);
 
     const approvedGroups = allRes.data.data || [];
     const myCreatedGroups = myRes.data.data || [];
 
-    setAllGroups(approvedGroups);
-    setUserGroups(myCreatedGroups); // ← This shows "Your Created Groups"
+    // 🔥 FILTER OUT GROUPS YOU CREATED
+    const filteredGroups = approvedGroups.filter(g => g.created_by !== userId);
 
-    // For joined groups (from group_members table)
+    // Set state
+    setAllGroups(filteredGroups);      // AVAILABLE groups
+    setUserGroups(myCreatedGroups);    // CREATED groups
+
+    // Joined groups
     const joinedRes = await axios.get(`http://localhost:5000/api/group/my-joined/${userId}`);
     setJoinedGroups(joinedRes.data.data?.map(g => g.id) || []);
 
@@ -55,7 +60,7 @@ const fetchGroups = async () => {
   useEffect(() => {
     socket.on("request_approved", data => {
       if (data.userId === currentUserId) {
-        alert(`Your request to join "${data.groupName}" was approved!`);
+        toast.success(`Your request to join "${data.groupName}" was approved!`);
         setJoinedGroups(prev => [...prev, data.groupId]);
         setPendingRequests(prev => prev.filter(id => id !== data.groupId));
       }
@@ -266,19 +271,25 @@ if (res.data.success) {
             )}
           </div>
 
-          <div className="px-5 pb-5">
-            <button
-              onClick={() => navigate(`/group/${g.id}`)}
-              className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
-                g.status === "declined"
-                  ? "bg-gray-400 text-white cursor-not-allowed"
-                  : "bg-[#800000] text-white hover:bg-[#6b0000] shadow-md hover:shadow-lg transform hover:scale-105"
-              }`}
-              disabled={g.status === "declined"}
-            >
-              {g.status === "declined" ? "Declined – Cannot Enter" : "View Group Details"}
-            </button>
-          </div>
+<div className="px-5 pb-5">
+  <button
+    onClick={() => {
+      if (g.status !== "declined") {
+        console.log("Navigating to group:", g); // ✅ logs the group safely
+        navigate(`/group/${g.id}`); // navigate to JoinViewPage
+      }
+    }}
+    className={`w-full py-3 rounded-xl font-semibold text-sm transition-all duration-200 ${
+      g.status === "declined"
+        ? "bg-gray-400 text-white cursor-not-allowed"
+        : "bg-[#800000] text-white hover:bg-[#6b0000] shadow-md hover:shadow-lg transform hover:scale-105"
+    }`}
+    disabled={g.status === "declined"} // prevents clicking if declined
+  >
+    {g.status === "declined" ? "Declined – Cannot Enter" : "View Group Details"}
+  </button>
+</div>
+
         </div>
       ))
     )}

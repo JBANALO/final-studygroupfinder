@@ -1,4 +1,8 @@
+import { useNavigate } from "react-router-dom";
+
 export default function AboutPage() {
+  const navigate = useNavigate();
+
   return (
       <div className="flex h-[calc(100vh-200px)] max-w-7xl mx-auto bg-white shadow-xl rounded-xl border border-gray-300 overflow-hidden">
         <div className="flex-1 flex flex-col lg:flex-row gap-0">
@@ -107,7 +111,10 @@ export default function AboutPage() {
               <p className="text-sm text-gray-700 mb-4">
                 Having trouble finding a group or creating one?
               </p>
-              <button className="w-full bg-maroon text-white py-2.5 rounded-lg hover:brightness-110 transition text-sm font-medium">
+              <button
+                className="w-full bg-maroon text-white py-2.5 rounded-lg hover:brightness-110 transition text-sm font-medium"
+                onClick={() => navigate("/contacts")}
+              >
                 Contact Support
               </button>
             </div>

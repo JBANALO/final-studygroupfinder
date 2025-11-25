@@ -147,12 +147,10 @@ export default function InboxPage() {
     return true;
   });
 
-  const joinRequests = messages.filter(m => m.type === "join_request" && !m.is_read && !m.is_archived && m.user_id === userId).length;
+  const joinRequests = messages.filter(m => m.type === "join_request" && !m.is_archived && m.user_id === userId).length;
 
   return (
     <div className="flex h-[calc(100vh-200px)] max-w-7xl mx-auto bg-white shadow-xl rounded-xl border border-gray-300 overflow-hidden">
-      <ToastContainer />
-
       {/* SIDEBAR */}
       <aside className="w-64 bg-[#800000] text-white p-4 flex flex-col">
         <h2 className="font-bold text-xl mb-6 flex items-center gap-2">
@@ -218,7 +216,7 @@ export default function InboxPage() {
                   className={`p-6 hover:bg-gray-50 cursor-pointer flex items-center justify-between transition-all ${!msg.is_read ? "bg-blue-50" : ""} ${selected?.id === msg.id ? "bg-gray-100" : ""}`}
                 >
                   <div className="flex items-center gap-4 flex-1">
-                    <div className={`w-12 h-12 rounded-full flex-center ${msg.type === "join_request" ? "bg-yellow-100" : "bg-gray-100"}`}>
+                    <div className={`w-12 h-12 items-center rounded-full flex-center ${msg.type === "join_request" ? "bg-yellow-100" : "bg-gray-100"}`}>
                       {msg.type === "join_request" ? (
                         <UserPlusIcon className="w-7 h-7 text-yellow-600" />
                       ) : (
@@ -233,23 +231,23 @@ export default function InboxPage() {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {msg.type === "join_request" && !msg.is_archived && msg.user_id === userId && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); approveRequest(msg); }}
-                          className="bg-green-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-700 flex items-center gap-2 shadow"
-                        >
-                          <CheckIcon className="w-5 h-5" /> Approve
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); declineRequest(msg); }}
-                          className="bg-red-600 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-red-700 flex items-center gap-2 shadow"
-                        >
-                          <XMarkIcon className="w-5 h-5" /> Decline
-                        </button>
-                      </div>
-                    )}
+                      {msg.type === "join_request" && !msg.is_archived && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); approveRequest(msg); }}
+                            className="bg-green-600 text-white px-1 py-2 rounded-lg font-bold hover:bg-green-700 flex items-center gap-1 shadow"
+                          >
+                            <CheckIcon className="w-4 h-4" /> Approve
+                          </button>
 
+                          <button
+                            onClick={(e) => { e.stopPropagation(); declineRequest(msg); }}
+                            className="bg-red-600 text-white px-1 py-2 rounded-lg font-bold hover:bg-red-700 flex items-center gap-1 shadow"
+                          >
+                            <XMarkIcon className="w-4 h-4" /> Decline
+                          </button>
+                        </div>
+                      )}
                     <div className="flex items-center gap-2">
                       <button onClick={(e) => { e.stopPropagation(); toggleStar(msg.id, msg.is_starred); }} className="p-2 hover:bg-gray-200 rounded">
                         <StarIcon className={`w-5 h-5 ${msg.is_starred ? "text-yellow-500 fill-current" : "text-gray-400"}`} />

@@ -26,7 +26,7 @@ const auth = async () => {
   return oAuth2Client;
 };
 
-export const createEvent = async ({ title, description = "", location = "Online", start, end }) => {
+export const createEvent = async ({ title, description = "", location = "Online", start, end, meetingType = "physical" }) => {
   const authClient = await auth();
   const calendar = google.calendar({ version: "v3", auth: authClient });
 
@@ -35,7 +35,7 @@ export const createEvent = async ({ title, description = "", location = "Online"
     description,
     location,
     start: {
-      dateTime: start,           // ← Dapat ISO string na (2025-11-22T14:00:00.000Z)
+      dateTime: start,
       timeZone: "Asia/Manila",
     },
     end: {
@@ -44,9 +44,20 @@ export const createEvent = async ({ title, description = "", location = "Online"
     },
   };
 
+  // If online meeting, add Google Meet request
+  if (meetingType === "online") {
+    event.conferenceData = {
+      createRequest: {
+        requestId: `meet-${Date.now()}`,
+        conferenceSolutionKey: { type: "hangoutsMeet" },
+      },
+    };
+  }
+
   const response = await calendar.events.insert({
     calendarId: "primary",
     requestBody: event,
+    conferenceDataVersion: meetingType === "online" ? 1 : 0, // must be 1 to generate Meet link
   });
 
   return response.data;

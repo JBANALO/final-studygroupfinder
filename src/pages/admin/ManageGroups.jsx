@@ -146,7 +146,6 @@ const handleDecline = async (groupId) => {
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <ToastContainer position="top-right" autoClose={3000} />
       <div className="max-w-7xl mx-auto">
         <h1 className="text-4xl font-bold text-maroon mb-4 flex items-center gap-3">
           <UsersIcon className="w-10 h-10" /> Manage Study Groups

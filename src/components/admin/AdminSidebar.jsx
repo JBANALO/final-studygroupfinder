@@ -20,8 +20,6 @@ export default function AdminSidebar() {
     { id: 1, label: "Dashboard", icon: HomeIcon, path: "/admin/dashboard" },
     { id: 2, label: "Manage Users", icon: UsersIcon, path: "/admin/manage-users" },
     { id: 3, label: "Manage Groups", icon: UserGroupIcon, path: "/admin/manage-groups" },
-    { id: 4, label: "Reports", icon: ChartBarIcon, path: "/admin/reports" },
-    { id: 5, label: "Settings", icon: Cog6ToothIcon, path: "/admin/settings" },
   ];
 
   return (
@@ -68,16 +66,6 @@ export default function AdminSidebar() {
           );
         })}
       </nav>
-
-      <div className="p-3 border-t border-maroon/30">
-        <button
-          onClick={() => navigate("/admin/login")}
-          className="w-full flex items-center gap-3 px-3 py-3 rounded-lg hover:bg-white/10 transition"
-        >
-          <ArrowRightCircleIcon className="w-6 h-6" />
-          {!isCollapsed && <span>Logout</span>}
-        </button>
-      </div>
     </aside>
   );
 }

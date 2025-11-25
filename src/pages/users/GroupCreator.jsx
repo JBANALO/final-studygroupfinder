@@ -3,6 +3,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import { io } from "socket.io-client";
 import { ClockIcon, XCircleIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
+
 
 export default function GroupCreator({ currentUserId: propUserId }) {
   const navigate = useNavigate();
@@ -99,33 +102,34 @@ useEffect(() => {
   };
 }, [currentUserId]);
 
-  const handleApproveMember = async (groupId, user) => {
-    try {
-      await axios.post(`http://localhost:5000/api/group/${groupId}/approve`, { userId: user.userId });
-      alert(`${user.username} has been approved!`);
-      fetchPendingMembers();
-      socket.emit("request_approved", {
-        userId: user.userId,
-        groupId,
-        groupName: availableGroups.find(g => g.id === groupId)?.group_name
-      });
-    } catch (err) {
-      console.error(err);
-      alert("Failed to approve member.");
-    }
-  };
+const handleApproveMember = async (groupId, user) => {
+  try {
+    await axios.post(`http://localhost:5000/api/group/${groupId}/approve`, { userId: user.userId });
+    toast.success(`${user.username} has been approved!`);
+    fetchPendingMembers();
+    socket.emit("request_approved", {
+      userId: user.userId,
+      groupId,
+      groupName: availableGroups.find(g => g.id === groupId)?.group_name
+    });
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to approve member.");
+  }
+};
 
-  const handleDeclineMember = async (groupId, user) => {
-    try {
-      await axios.post(`http://localhost:5000/api/group/${groupId}/decline`, { userId: user.userId });
-      alert(`${user.username} has been declined.`);
-      fetchPendingMembers();
-      socket.emit("request_declined", { userId: user.userId, groupId });
-    } catch (err) {
-      console.error(err);
-      alert("Failed to decline member.");
-    }
-  };
+const handleDeclineMember = async (groupId, user) => {
+  try {
+    await axios.post(`http://localhost:5000/api/group/${groupId}/decline`, { userId: user.userId });
+    toast.info(`${user.username} has been declined.`);
+    fetchPendingMembers();
+    socket.emit("request_declined", { userId: user.userId, groupId });
+  } catch (err) {
+    console.error(err);
+    toast.error("Failed to decline member.");
+  }
+};
+
 
   const handleViewGroup = (groupId) => {
     navigate(`/group/${groupId}`);

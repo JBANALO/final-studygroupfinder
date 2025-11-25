@@ -1,22 +1,61 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   UsersIcon,
   ChatBubbleLeftRightIcon,
   FlagIcon,
-  Cog6ToothIcon,
 } from "@heroicons/react/24/solid";
+import axios from "axios";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+
+  // State for stats and activities
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    activeGroups: 0,
+    pendingReports: 0,
+    systemStatus: "OK",
+  });
+  const [activities, setActivities] = useState([]);
+
+  // Fetch dashboard stats
+  const fetchStats = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/admin/dashboard");
+      setStats(res.data);
+    } catch (err) {
+      console.error("Failed to fetch dashboard stats:", err);
+    }
+  };
+
+  // Fetch recent activities
+  const fetchActivities = async () => {
+    try {
+      const res = await axios.get("http://localhost:5000/api/admin/activities");
+      setActivities(res.data || []);
+    } catch (err) {
+      console.error("Failed to fetch activities:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchStats();
+    fetchActivities();
+  }, []);
+
   return (
     <div>
       <h2 className="text-2xl font-bold text-maroon mb-6">Dashboard Overview</h2>
 
+      {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-gray-700">Total Users</h3>
             <UsersIcon className="w-8 h-8 text-maroon/70" />
           </div>
-          <p className="text-3xl font-bold text-maroon">152</p>
+          <p className="text-3xl font-bold text-maroon">{stats.totalUsers}</p>
           <p className="text-sm text-gray-500 mt-1">+12 this week</p>
         </div>
 
@@ -25,7 +64,7 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-700">Active Groups</h3>
             <ChatBubbleLeftRightIcon className="w-8 h-8 text-maroon/70" />
           </div>
-          <p className="text-3xl font-bold text-maroon">27</p>
+          <p className="text-3xl font-bold text-maroon">{stats.activeGroups}</p>
           <p className="text-sm text-gray-500 mt-1">4 new today</p>
         </div>
 
@@ -34,65 +73,90 @@ export default function AdminDashboard() {
             <h3 className="text-lg font-semibold text-gray-700">Pending Reports</h3>
             <FlagIcon className="w-8 h-8 text-red-500" />
           </div>
-          <p className="text-3xl font-bold text-red-600">4</p>
+          <p className="text-3xl font-bold text-red-600">{stats.pendingReports}</p>
           <p className="text-sm text-gray-500 mt-1">Requires attention</p>
         </div>
 
         <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 hover:shadow-lg transition">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-lg font-semibold text-gray-700">System Status</h3>
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+            <div
+              className={`w-3 h-3 rounded-full animate-pulse ${
+                stats.systemStatus === "OK" ? "bg-green-500" : "bg-red-500"
+              }`}
+            ></div>
           </div>
-          <p className="text-3xl font-bold text-green-600">OK</p>
-          <p className="text-sm text-gray-500 mt-1">All systems normal</p>
+          <p
+            className={`text-3xl font-bold ${
+              stats.systemStatus === "OK" ? "text-green-600" : "text-red-600"
+            }`}
+          >
+            {stats.systemStatus}
+          </p>
+          <p className="text-sm text-gray-500 mt-1">
+            {stats.systemStatus === "OK" ? "All systems normal" : "Issues detected"}
+          </p>
         </div>
       </div>
 
+      {/* Quick Actions */}
       <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200 mb-8">
         <h3 className="text-lg font-semibold text-maroon mb-4">Quick Actions</h3>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button className="bg-maroon text-white px-4 py-3 rounded-lg hover:brightness-110 transition font-medium flex items-center justify-center gap-2">
+          <button
+            onClick={() => navigate("/admin/manage-users")}
+            className="bg-maroon text-white px-4 py-3 rounded-lg hover:brightness-110 transition font-medium flex items-center justify-center gap-2"
+          >
             <UsersIcon className="w-5 h-5" />
             Manage Users
           </button>
-          <button className="bg-gold text-maroon px-4 py-3 rounded-lg hover:brightness-110 transition font-medium flex items-center justify-center gap-2">
+          <button
+            onClick={() => navigate("/admin/manage-groups")}
+            className="bg-gold text-maroon px-4 py-3 rounded-lg hover:brightness-110 transition font-medium flex items-center justify-center gap-2"
+          >
             <ChatBubbleLeftRightIcon className="w-5 h-5" />
             View Groups
-          </button>
-          <button className="bg-red-600 text-white px-4 py-3 rounded-lg hover:bg-red-700 transition font-medium flex items-center justify-center gap-2">
-            <FlagIcon className="w-5 h-5" />
-            Review Reports
-          </button>
-          <button className="bg-gray-700 text-white px-4 py-3 rounded-lg hover:bg-gray-800 transition font-medium flex items-center justify-center gap-2">
-            <Cog6ToothIcon className="w-5 h-5" />
-            System Settings
           </button>
         </div>
       </div>
 
+      {/* Recent Activity */}
       <div className="bg-white p-6 rounded-xl shadow-md border border-gray-200">
         <h3 className="text-lg font-semibold text-maroon mb-4">Recent Activity</h3>
         <div className="space-y-3">
-          {[
-            { user: "Maria Santos", action: "created group", target: "Math 146 Study", time: "2 mins ago" },
-            { user: "John Reyes", action: "reported user", target: "spam account", time: "15 mins ago" },
-            { user: "Admin", action: "approved group", target: "Biol 41 Review", time: "1 hour ago" },
-          ].map((activity, i) => (
-            <div key={i} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 bg-gold rounded-full flex items-center justify-center text-maroon text-xs font-bold">
-                  {activity.user[0]}
+          {activities.length === 0 ? (
+            <p className="text-gray-500">No recent activity</p>
+          ) : (
+            activities.map((activity, i) => (
+              <div
+                key={i}
+                className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-gold rounded-full flex items-center justify-center text-maroon text-xs font-bold">
+                    {activity.user_first[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">
+                      <span className="text-maroon">
+                        {activity.user_first} {activity.user_last}
+                      </span>{" "}
+                      {activity.action}{" "}
+                      {activity.target && (
+                        <span className="font-semibold">"{activity.target}"</span>
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-800">
-                    <span className="text-maroon">{activity.user}</span> {activity.action}{" "}
-                    <span className="font-semibold">"{activity.target}"</span>
-                  </p>
-                </div>
+                <span className="text-xs text-gray-500">
+                  {new Date(activity.created_at).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
               </div>
-              <span className="text-xs text-gray-500">{activity.time}</span>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </div>
     </div>

@@ -43,48 +43,6 @@ export default function ContactsPage() {
                     </li>
                   </ul>
                 </section>
-
-                <section>
-                  <h2 className="text-xl font-semibold text-maroon mb-4">Send Us a Message</h2>
-                  <form className="space-y-4">
-                    <div className="grid sm:grid-cols-2 gap-4">
-                      <input
-                        type="text"
-                        placeholder="Your Full Name"
-                        className="w-full p-3 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold transition"
-                      />
-                      <input
-                        type="email"
-                        placeholder="Your Email (WMSU email preferred)"
-                        className="w-full p-3 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold transition"
-                      />
-                    </div>
-
-                    <input
-                      type="text"
-                      placeholder="Subject (e.g., Group Creation Issue)"
-                      className="w-full p-3 rounded-lg bg-gray-100 border border-gray-300 focus:outline-none focus:ring-2 focus:ring-gold transition"
-                    />
-
-                    <textarea
-                      placeholder="Describe your question or issue in detail..."
-                      className="w-full p-3 rounded-lg bg-gray-100 border border-gray-300 resize-none h-36 focus:outline-none focus:ring-2 focus:ring-gold transition"
-                    ></textarea>
-
-                    <button
-                      type="submit"
-                      className="w-full sm:w-auto bg-maroon text-white px-8 py-3 rounded-lg hover:brightness-110 transition font-medium text-sm"
-                    >
-                      Send Message
-                    </button>
-                  </form>
-                </section>
-
-                <section className="bg-maroon/5 p-6 rounded-xl border border-maroon/20 text-center">
-                  <p className="text-sm text-gray-600">
-                    <strong>Note:</strong> Responses are typically sent within <strong>24 hours</strong> during weekdays.
-                  </p>
-                </section>
               </div>
             </div>
           </main>
@@ -124,9 +82,6 @@ export default function ContactsPage() {
             </div>
 
             <div className="bg-gold/10 p-6 rounded-xl border border-gold/30 text-center">
-              <p className="text-sm font-medium text-maroon">
-                We reply to all messages!
-              </p>
               <p className="text-xs text-gray-600 mt-1">
                 Your success is our priority.
               </p>

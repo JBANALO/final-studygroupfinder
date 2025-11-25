@@ -342,4 +342,31 @@ router.get("/my-groups/:userId", async (req, res) => {
   }
 });
 
+// LEAVE GROUP
+router.post("/leave", async (req, res) => {
+  const { userId, groupId } = req.body;
+
+  if (!userId || !groupId) return res.status(400).json({ message: "userId and groupId are required" });
+
+  try {
+    // Check if user is a member
+    const [member] = await pool.query(
+      "SELECT * FROM group_members WHERE user_id = ? AND group_id = ?",
+      [userId, groupId]
+    );
+    if (member.length === 0) return res.status(404).json({ message: "User is not a member of this group" });
+
+    // Remove from group_members
+    await pool.query("DELETE FROM group_members WHERE user_id = ? AND group_id = ?", [userId, groupId]);
+
+    // Optional: decrement current_members in groups
+    await pool.query("UPDATE groups SET current_members = current_members - 1 WHERE id = ?", [groupId]);
+
+    res.json({ message: "You have left the group successfully." });
+  } catch (err) {
+    console.error("Leave group error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 export default router;

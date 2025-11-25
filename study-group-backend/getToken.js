@@ -1,10 +1,9 @@
-// getToken.js
 import fs from "fs";
 import readline from "readline";
 import { google } from "googleapis";
 import path from "path";
 
-const SCOPES = ["https://www.googleapis.com/auth/calendar"];
+const SCOPES = ["https://www.googleapis.com/auth/calendar.events"];
 const CREDENTIALS_PATH = path.join("./credentials.json");
 const TOKEN_PATH = path.join("./token.json");
 
@@ -18,6 +17,7 @@ function getAccessToken(oAuth2Client) {
   const authUrl = oAuth2Client.generateAuthUrl({
     access_type: "offline",
     scope: SCOPES,
+    prompt: "consent",
   });
   console.log("Authorize this app by visiting this URL:\n", authUrl);
 

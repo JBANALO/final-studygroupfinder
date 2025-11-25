@@ -8,11 +8,17 @@ router.get("/:groupId/messages", async (req, res) => {
   const groupId = parseInt(req.params.groupId, 10);
   try {
     const [messages] = await pool.execute(
-      `SELECT id, sender_id AS sender, text, file_link AS fileLink,
-              DATE_FORMAT(time, '%h:%i %p') AS time
-       FROM group_messages
-       WHERE group_id = ?
-       ORDER BY time ASC`,
+      `SELECT 
+         gm.id, 
+         gm.sender_id,
+         gm.text, 
+         gm.file_link AS fileLink,
+         DATE_FORMAT(gm.time, '%h:%i %p') AS time,
+         u.username AS sender_name
+       FROM group_messages gm
+       JOIN users u ON gm.sender_id = u.id
+       WHERE gm.group_id = ?
+       ORDER BY gm.time ASC`,
       [groupId]
     );
     res.json({ messages });

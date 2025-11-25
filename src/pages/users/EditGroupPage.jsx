@@ -110,8 +110,6 @@ const handleSubmit = async (e) => {
 
   return (
     <div className="flex h-[calc(100vh-180px)] max-w-3xl mx-auto bg-gradient-to-br from-gray-50 to-gray-100 shadow-2xl rounded-2xl border border-gray-200 overflow-hidden">
-      <ToastContainer position="top-right" autoClose={3000} />
-
       <div className="flex-1 p-10 flex flex-col overflow-y-auto scrollbar-hide">
         {/* Page Title */}
         <div className="mb-10 flex justify-between items-center">
