@@ -1,15 +1,49 @@
-require('dotenv').config();
 const mysql = require('mysql2');
 
+// Create connection pool with environment variables
 const pool = mysql.createPool({
-  host: process.env.DB_HOST,
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS || '', 
-  database: process.env.DB_NAME,
+  host: process.env.DB_HOST || '127.0.0.1',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '',
+  database: process.env.DB_NAME || 'study_group',
   port: process.env.DB_PORT || 3307,
   waitForConnections: true,
   connectionLimit: 10,
-  queueLimit: 0
+  maxIdle: 10,
+  idleTimeout: 60000,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
 });
 
-module.exports = pool;
+// Test the connection
+pool.getConnection((err, connection) => {
+  if (err) {
+    console.error('❌ Database connection error:', err.message);
+    if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+      console.error('Database connection was closed.');
+    }
+    if (err.code === 'ER_CON_COUNT_ERROR') {
+      console.error('Database has too many connections.');
+    }
+    if (err.code === 'ECONNREFUSED') {
+      console.error('Database connection was refused.');
+    }
+  } else {
+    console.log('✅ Database connected successfully');
+    console.log(`📊 Database: ${process.env.DB_NAME || 'study_group'}`);
+    console.log(`🏠 Host: ${process.env.DB_HOST || '127.0.0.1'}:${process.env.DB_PORT || 3307}`);
+    connection.release();
+  }
+});
+
+// Handle connection errors after initial connection
+pool.on('error', (err) => {
+  console.error('Unexpected database error:', err);
+  if (err.code === 'PROTOCOL_CONNECTION_LOST') {
+    console.error('Database connection was lost. Reconnecting...');
+  }
+});
+
+// Export promisified pool
+module.exports = pool.promise();
