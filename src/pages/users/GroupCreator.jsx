@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import axios from "axios";
+import api from "../../api";
 import { io } from "socket.io-client";
 import { ClockIcon, XCircleIcon, CheckCircleIcon } from "@heroicons/react/24/solid";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function GroupCreator({ currentUserId: propUserId }) {
   const navigate = useNavigate();
@@ -17,119 +18,113 @@ export default function GroupCreator({ currentUserId: propUserId }) {
   const [availableGroups, setAvailableGroups] = useState([]);
   const [pendingGroups, setPendingGroups] = useState([]);
   const [declinedGroups, setDeclinedGroups] = useState([]);
-  const [pendingMembersMap, setPendingMembersMap] = useState({}); // { groupId: [{userId, username}, ...] }
+  const [pendingMembersMap, setPendingMembersMap] = useState({});
 
   let socket;
 
-const fetchGroups = async () => {
-  if (!currentUserId) return;
+  const fetchGroups = async () => {
+    if (!currentUserId) return;
 
-  try {
-    const [allRes] = await Promise.all([
-      axios.get("http://localhost:5000/api/group/all")
-    ]);
+    try {
+      const [allRes] = await Promise.all([
+        api.get("/group/all")
+      ]);
 
-    const allGroups = allRes.data.data || [];
+      const allGroups = allRes.data.data || [];
 
-    const available = [];
-    const pending = [];
-    const declined = [];
+      const available = [];
+      const pending = [];
+      const declined = [];
 
-    allGroups.forEach((group) => {
-      const isCreator = Number(group.created_by) === Number(currentUserId);
+      allGroups.forEach((group) => {
+        const isCreator = Number(group.created_by) === Number(currentUserId);
 
-      if (isCreator) {
-        if (group.status === "pending") {
-          pending.push({ ...group, remarks: "Waiting for admin approval" });
-        } else if (group.status === "declined") {
-          declined.push({ ...group, remarks: group.remarks || "No remarks provided" });
-        } else if (group.status === "approved") {
-          available.push(group); // ← Only once!
+        if (isCreator) {
+          if (group.status === "pending") {
+            pending.push({ ...group, remarks: "Waiting for admin approval" });
+          } else if (group.status === "declined") {
+            declined.push({ ...group, remarks: group.remarks || "No remarks provided" });
+          } else if (group.status === "approved") {
+            available.push(group);
+          }
         }
-      }
-    });
+      });
 
-    setAvailableGroups(available);
-    setPendingGroups(pending);
-    setDeclinedGroups(declined);
+      setAvailableGroups(available);
+      setPendingGroups(pending);
+      setDeclinedGroups(declined);
 
-  } catch (err) {
-    console.error("Error loading groups:", err);
-  }
-};
+    } catch (err) {
+      console.error("Error loading groups:", err);
+    }
+  };
 
   const fetchPendingMembers = async () => {
     if (!currentUserId) return;
     try {
-      const res = await axios.get(`http://localhost:5000/api/group/pending-members/${currentUserId}`);
-      // Expected response: { groupId: [{userId, username}, ...], ... }
+      const res = await api.get(`/group/pending-members/${currentUserId}`);
       setPendingMembersMap(res.data.data || {});
     } catch (err) {
       console.error("Error fetching pending members:", err);
     }
   };
 
-useEffect(() => {
-  if (!currentUserId) return;
+  useEffect(() => {
+    if (!currentUserId) return;
 
-  fetchGroups();
-  fetchPendingMembers();
-
-  socket = io("http://localhost:5000");
-
-  socket.emit("join_creator", currentUserId);
-
-  // Listen for group status changes (admin approve/decline)
-  socket.on("groupStatusChanged", () => {
     fetchGroups();
     fetchPendingMembers();
-  });
+    socket = io(API_URL);
 
-  // Also listen for the new event (just in case)
-  socket.on("groupUpdated", () => {
-    fetchGroups();
-    fetchPendingMembers();
-  });
+    socket.emit("join_creator", currentUserId);
 
-  // Keep your existing refresh for member approvals
-  socket.on("refresh_pending", () => {
-    fetchPendingMembers();
-    fetchGroups();
-  });
-
-  return () => {
-    socket.disconnect();
-  };
-}, [currentUserId]);
-
-const handleApproveMember = async (groupId, user) => {
-  try {
-    await axios.post(`http://localhost:5000/api/group/${groupId}/approve`, { userId: user.userId });
-    toast.success(`${user.username} has been approved!`);
-    fetchPendingMembers();
-    socket.emit("request_approved", {
-      userId: user.userId,
-      groupId,
-      groupName: availableGroups.find(g => g.id === groupId)?.group_name
+    socket.on("groupStatusChanged", () => {
+      fetchGroups();
+      fetchPendingMembers();
     });
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to approve member.");
-  }
-};
 
-const handleDeclineMember = async (groupId, user) => {
-  try {
-    await axios.post(`http://localhost:5000/api/group/${groupId}/decline`, { userId: user.userId });
-    toast.info(`${user.username} has been declined.`);
-    fetchPendingMembers();
-    socket.emit("request_declined", { userId: user.userId, groupId });
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to decline member.");
-  }
-};
+    socket.on("groupUpdated", () => {
+      fetchGroups();
+      fetchPendingMembers();
+    });
 
+    socket.on("refresh_pending", () => {
+      fetchPendingMembers();
+      fetchGroups();
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [currentUserId]);
+
+  const handleApproveMember = async (groupId, user) => {
+    try {
+      await api.post(`/group/${groupId}/approve`, { userId: user.userId });
+      toast.success(`${user.username} has been approved!`);
+      fetchPendingMembers();
+      socket.emit("request_approved", {
+        userId: user.userId,
+        groupId,
+        groupName: availableGroups.find(g => g.id === groupId)?.group_name
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to approve member.");
+    }
+  };
+
+  const handleDeclineMember = async (groupId, user) => {
+    try {
+      await api.post(`/group/${groupId}/decline`, { userId: user.userId });
+      toast.info(`${user.username} has been declined.`);
+      fetchPendingMembers();
+      socket.emit("request_declined", { userId: user.userId, groupId });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to decline member.");
+    }
+  };
 
   const handleViewGroup = (groupId) => {
     navigate(`/group/${groupId}`);

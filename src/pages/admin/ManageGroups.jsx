@@ -1,10 +1,12 @@
 // src/pages/admin/ManageGroups.jsx
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import { io } from "socket.io-client";
 import { CheckCircleIcon, XCircleIcon, UsersIcon, ClockIcon, ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/24/solid";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 export default function ManageGroups() {
   const [groups, setGroups] = useState([]);
@@ -17,80 +19,72 @@ export default function ManageGroups() {
     declined: false,
   });
 
-const fetchGroups = async () => {
-  setLoading(true);
-  try {
-    const res = await axios.get("http://localhost:5000/api/group/all"); // ← Show ALL
-    const groupList = Array.isArray(res.data)
-      ? res.data
-      : res.data?.data || [];
-    
-    // Ensure pending groups are correctly marked
-    const mappedGroups = groupList.map(g => ({
-      ...g,
-      status: g.status || "pending"
-    }));
+  const fetchGroups = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get("/group/all");
+      const groupList = Array.isArray(res.data)
+        ? res.data
+        : res.data?.data || [];
+      
+      const mappedGroups = groupList.map(g => ({
+        ...g,
+        status: g.status || "pending"
+      }));
 
-    setGroups(mappedGroups);
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to fetch groups");
-    setGroups([]);
-  } finally {
-    setLoading(false);
-  }
-};
+      setGroups(mappedGroups);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to fetch groups");
+      setGroups([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
+  useEffect(() => {
+    fetchGroups();
+    const socket = io(API_URL);
 
-useEffect(() => {
-  fetchGroups(); // initial load
-
-  const socket = io("http://localhost:5000");
-
-  // NEW GROUPS APPEAR INSTANTLY IN PENDING
-  socket.on("newPendingGroup", (newGroup) => {
-    setGroups(prev => {
-      // Prevent duplicates
-      if (prev.some(g => g.id === newGroup.id)) return prev;
-      // Add to the top of pending
-      toast.success(`New group created: ${newGroup.group_name}`);
-      return [newGroup, ...prev];
+    socket.on("newPendingGroup", (newGroup) => {
+      setGroups(prev => {
+        if (prev.some(g => g.id === newGroup.id)) return prev;
+        toast.success(`New group created: ${newGroup.group_name}`);
+        return [newGroup, ...prev];
+      });
     });
-  });
 
-  // When any admin approves/declines — refresh everyone
-  socket.on("groupStatusChanged", () => {
-    fetchGroups();
-  });
+    socket.on("groupStatusChanged", () => {
+      fetchGroups();
+    });
 
-  return () => socket.disconnect();
-}, []);
+    return () => socket.disconnect();
+  }, []);
 
-const handleApprove = async (groupId) => {
-  if (!confirm("Approve this group?")) return;
-  try {
-    await axios.patch(`http://localhost:5000/api/admin/approve/${groupId}`);
-    toast.success("Group approved! Creator will receive an email.");
-    fetchGroups();
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to approve group");
-  }
-};
+  const handleApprove = async (groupId) => {
+    if (!confirm("Approve this group?")) return;
+    try {
+      await api.patch(`/admin/approve/${groupId}`);
+      toast.success("Group approved! Creator will receive an email.");
+      fetchGroups();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to approve group");
+    }
+  };
 
-const handleDecline = async (groupId) => {
-  if (!confirm("Decline this group?")) return;
-  const remarks = prompt("Reason for declining this group:") || "No remarks provided";
-  try {
-    await axios.patch(`http://localhost:5000/api/admin/decline/${groupId}`, { remarks });
-    toast.info("Group declined! Creator will receive an email.");
-    fetchGroups();
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to decline group");
-  }
-};
-
+  const handleDecline = async (groupId) => {
+    if (!confirm("Decline this group?")) return;
+    const remarks = prompt("Reason for declining this group:") || "No remarks provided";
+    try {
+      await api.patch(`/admin/decline/${groupId}`, { remarks });
+      toast.info("Group declined! Creator will receive an email.");
+      fetchGroups();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to decline group");
+    }
+  };
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -151,7 +145,6 @@ const handleDecline = async (groupId) => {
           <UsersIcon className="w-10 h-10" /> Manage Study Groups
         </h1>
 
-        {/* Search / Filter */}
         <div className="mb-4 flex items-center gap-3">
           <input
             type="text"
@@ -177,7 +170,6 @@ const handleDecline = async (groupId) => {
             </tr>
           </thead>
           <tbody>
-            {/* Pending Section */}
             <tr className="bg-gray-50 cursor-pointer" onClick={() => toggleSection("pending")}>
               <td colSpan={6} className="px-6 py-3 font-semibold text-yellow-800 flex justify-between items-center">
                 Pending Approval ({pending.length})
@@ -186,7 +178,6 @@ const handleDecline = async (groupId) => {
             </tr>
             {renderRows(pending, "pending")}
 
-            {/* Approved Section */}
             <tr className="bg-gray-50 cursor-pointer" onClick={() => toggleSection("approved")}>
               <td colSpan={6} className="px-6 py-3 font-semibold text-green-800 flex justify-between items-center">
                 Approved ({approved.length})
@@ -195,7 +186,6 @@ const handleDecline = async (groupId) => {
             </tr>
             {renderRows(approved, "approved")}
 
-            {/* Declined Section */}
             <tr className="bg-gray-50 cursor-pointer" onClick={() => toggleSection("declined")}>
               <td colSpan={6} className="px-6 py-3 font-semibold text-red-800 flex justify-between items-center">
                 Declined ({declined.length})

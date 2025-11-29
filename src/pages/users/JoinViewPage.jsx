@@ -132,8 +132,9 @@ export default function JoinViewPage() {
     loadGroup();
 
     // --- Initialize socket ---
-    const socket = io("http://localhost:5000", { 
-      transports: ["websocket", "polling"],
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const socket = io(API_URL, { 
+  transports: ["websocket", "polling"],
       withCredentials: true 
     });
     socketRef.current = socket;

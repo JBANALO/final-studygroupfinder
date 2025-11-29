@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import { io } from "socket.io-client";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -48,7 +48,8 @@ export default function InboxPage() {
     fetchNotifications();
 
     if (!userId) return;
-    const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
     socket.on("connect", () => socket.emit("join", userId));
 

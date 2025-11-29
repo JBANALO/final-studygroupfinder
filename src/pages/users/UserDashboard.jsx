@@ -5,7 +5,9 @@ import { io } from "socket.io-client";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const socket = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+// ✅ USE ENVIRONMENT VARIABLE
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
 export default function UserDashboard() {
   const navigate = useNavigate();
@@ -29,8 +31,8 @@ const fetchGroups = async () => {
     }
 
     const [allRes, myRes] = await Promise.all([
-      axios.get("http://localhost:5000/api/group/list"),
-      axios.get(`http://localhost:5000/api/group/my-groups/${userId}`)
+      axios.get(`${API_URL}/api/group/list`),
+      axios.get(`${API_URL}/api/group/my-groups/${userId}`)
     ]);
 
     const approvedGroups = allRes.data.data || [];
@@ -44,7 +46,7 @@ const fetchGroups = async () => {
     setUserGroups(myCreatedGroups);    // CREATED groups
 
     // Joined groups
-    const joinedRes = await axios.get(`http://localhost:5000/api/group/my-joined/${userId}`);
+    const joinedRes = await axios.get(`${API_URL}/api/group/my-joined/${userId}`);
     setJoinedGroups(joinedRes.data.data?.map(g => g.id) || []);
 
   } catch (err) {
@@ -78,7 +80,7 @@ const handleJoinGroup = async (groupId) => {
     if (!userId) return alert("You must be logged in to join a group.");
 
     // Include groupId in the POST body
-    const res = await axios.post(`http://localhost:5000/api/group/join`, {
+    const res = await axios.post(`${API_URL}/api/group/join`, {
       groupId,
       userId
     });
@@ -202,7 +204,7 @@ if (res.data.success) {
   <div className="space-y-6">
     {userGroups.length === 0 ? (
       <div className="text-center py-12 bg-white/70 rounded-2xl border border-dashed border-gray-300">
-        <p className="text-gray-500 text-lg">You haven’t created any groups yet.</p>
+        <p className="text-gray-500 text-lg">You haven't created any groups yet.</p>
         <p className="text-sm text-gray-400 mt-2">Click the button above to get started!</p>
       </div>
     ) : (
