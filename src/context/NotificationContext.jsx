@@ -12,8 +12,9 @@ export const NotificationProvider = ({ children }) => {
     const user = storedUser ? JSON.parse(storedUser) : null;
     if (!user) return;
 
-    // Connect to Socket.IO (change URL for production)
-    const sock = io("http://localhost:5000", { transports: ["websocket", "polling"] });
+    // Connect to Socket.IO - use environment variable
+    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+    const sock = io(API_URL, { transports: ["websocket", "polling"] });
 
     sock.on("connect", () => {
       sock.emit("join", user.id);
@@ -25,7 +26,7 @@ export const NotificationProvider = ({ children }) => {
     // Fetch initial unread count
     (async () => {
       try {
-        const res = await fetch(`http://localhost:5000/api/notifications/${user.id}`);
+        const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
         const data = await res.json();
         const count = data.filter(n => !n.is_read && !n.is_archived && !n.is_deleted).length;
         setUnreadCount(count);
