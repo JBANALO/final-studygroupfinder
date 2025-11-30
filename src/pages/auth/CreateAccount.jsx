@@ -47,13 +47,12 @@ export default function CreateAccount() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/auth`, {
+      const res = await fetch(`${API_URL}/api/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          first_name,
-          middle_name: middle_name || null,
-          last_name,
+          firstName: first_name,
+          lastName: last_name,
           username,
           email,
           password
@@ -63,11 +62,11 @@ export default function CreateAccount() {
       const data = await res.json();
 
       if (!res.ok) {
-        throw new Error(data.message || "Failed to create account");
+        throw new Error(data.error || data.message || "Failed to create account");
       }
 
-      alert("Account created successfully! Check your WMSU email for the verification code.");
-      navigate(`/verify?email=${encodeURIComponent(email)}`);
+      alert("Account created successfully! You can now log in.");
+      navigate("/login");
 
     } catch (err) {
       alert(err.message || "Something went wrong");
