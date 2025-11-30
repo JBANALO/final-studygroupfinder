@@ -84,10 +84,10 @@ app.get('/api/health', async (req, res) => {
 // Import routes
 const groupRoutes = require('./routes/group');
 // Add other routes here as needed
-
+const authRoutes = require('./routes/auth');
 // Use routes
 app.use('/api/group', groupRoutes);
-
+app.use('/api/auth', authRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
