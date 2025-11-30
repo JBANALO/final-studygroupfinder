@@ -2,8 +2,44 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const http = require('http');
+const { Server: IOServer } = require('socket.io');
 
 const app = express();
+const server = http.createServer(app);
+
+// ✅ Socket.IO Setup with proper CORS
+const io = new IOServer(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Make io accessible to routes
+app.set('io', io);
+
+// Socket.IO connection handling
+io.on('connection', (socket) => {
+  console.log('✅ User connected:', socket.id);
+
+  // Join group rooms
+  socket.on('join-group', (groupId) => {
+    socket.join(`group-${groupId}`);
+    console.log(`User ${socket.id} joined group-${groupId}`);
+  });
+
+  // Leave group rooms
+  socket.on('leave-group', (groupId) => {
+    socket.leave(`group-${groupId}`);
+    console.log(`User ${socket.id} left group-${groupId}`);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('❌ User disconnected:', socket.id);
+  });
+});
 
 // CORS configuration for production
 const corsOptions = {
@@ -48,19 +84,9 @@ app.get('/api/health', async (req, res) => {
 // Import routes
 const groupRoutes = require('./routes/group');
 // Add other routes here as needed
-// const userRoutes = require('./routes/user');
-// const announcementRoutes = require('./routes/announcement');
-// const scheduleRoutes = require('./routes/schedule');
-// const notificationRoutes = require('./routes/notification');
-// const messageRoutes = require('./routes/message');
 
 // Use routes
 app.use('/api/group', groupRoutes);
-// app.use('/api/user', userRoutes);
-// app.use('/api/announcement', announcementRoutes);
-// app.use('/api/schedule', scheduleRoutes);
-// app.use('/api/notification', notificationRoutes);
-// app.use('/api/message', messageRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -82,10 +108,13 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+
+// ✅ Use server.listen instead of app.listen
+server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL || 'http://localhost:3000'}`);
+  console.log(`🔌 Socket.IO enabled`);
 });
 
 // Graceful shutdown
