@@ -13,7 +13,6 @@ export const forgotPassword = async (req, res) => {
 
     const user = users[0];
 
-    // ❌ Block Google-only users
     if (!user.password && user.google_id) {
       return res.status(400).json({
         type: "google",
@@ -21,7 +20,6 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // ❌ Block hybrid users (should not normally exist)
     if (user.password && user.google_id) {
       return res.status(400).json({
         type: "hybrid",
@@ -29,7 +27,6 @@ export const forgotPassword = async (req, res) => {
       });
     }
 
-    // ✅ Manual account — continue with reset logic
     const resetToken = crypto.randomBytes(32).toString("hex");
     const resetTokenHash = crypto.createHash("sha256").update(resetToken).digest("hex");
     const expireTime = new Date(Date.now() + 10 * 60 * 1000);
@@ -39,7 +36,8 @@ export const forgotPassword = async (req, res) => {
       [resetTokenHash, expireTime, user.id]
     );
 
-    const resetURL = `http://localhost:5173/reset-password/${resetToken}?email=${encodeURIComponent(user.email)}`;
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const resetURL = `${FRONTEND_URL}/reset-password/${resetToken}?email=${encodeURIComponent(user.email)}`;
 
     const message = `
       <div style="font-family: Arial, sans-serif; line-height:1.6;">
@@ -48,7 +46,7 @@ export const forgotPassword = async (req, res) => {
         <p>We received a request to reset your password. Copy the link below and open it in the same tab to reset your password:</p>
         <a href="${resetURL}" style="color:#800000; text-decoration:underline; font-weight:bold;">Reset Password</a>
         <p>This link expires in 10 minutes.</p>
-        <p>If you didn’t request this, you can safely ignore this email.</p>
+        <p>If you didn't request this, you can safely ignore this email.</p>
         <br/>
         <p>– Crimsons Study Squad Team</p>
       </div>

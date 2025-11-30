@@ -1,4 +1,3 @@
-// controllers/authController.js
 import { OAuth2Client } from "google-auth-library";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -11,7 +10,6 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const generateToken = (userId) =>
   jwt.sign({ id: userId }, process.env.JWT_SECRET, { expiresIn: "7d" });
 
-// GOOGLE SIGN-IN (FIXED & WORKING)
 export const googleAuth = async (req, res) => {
   try {
     const { idToken } = req.body;
@@ -35,7 +33,6 @@ export const googleAuth = async (req, res) => {
       return res.status(400).json({ message: "Email not allowed (outside 5-year limit)" });
     }
 
-    // Name parsing
     const nameParts = fullName.trim().split(/\s+/);
     let first_name = nameParts[0] || "";
     let middle_name = "";
@@ -106,7 +103,6 @@ export const googleAuth = async (req, res) => {
   }
 };
 
-// CREATE ACCOUNT (FIXED — NOW RETURNS SUCCESS PROPERLY)
 export const createAccount = async (req, res) => {
   try {
     const { first_name, middle_name, last_name, username, email, password } = req.body;
@@ -134,14 +130,15 @@ export const createAccount = async (req, res) => {
       [first_name, middle_name || null, last_name, username, email, hashedPassword, verificationCode]
     );
 
-    // Send email
+    const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
     try {
       await sendEmail(
         email,
         "Verify Your Crimsons Study Squad Account",
         `<h2>Welcome ${first_name}!</h2>
          <p>Your verification code is: <strong style="font-size:18px">${verificationCode}</strong></p>
-         <p>Or click here: <a href="http://localhost:5173/verify?email=${encodeURIComponent(email)}">Verify Email</a></p>`
+         <p>Or click here: <a href="${FRONTEND_URL}/verify?email=${encodeURIComponent(email)}">Verify Email</a></p>`
       );
     } catch (emailErr) {
       console.error("Email failed but account created:", emailErr);
@@ -159,7 +156,6 @@ export const createAccount = async (req, res) => {
   }
 };
 
-// ---------------------- EMAIL/PASSWORD LOGIN ----------------------
 export const login = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -183,7 +179,6 @@ export const login = async (req, res) => {
   }
 };
 
-// ---------------------- ACCOUNT VERIFICATION ----------------------
 export const verifyAccount = async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -206,7 +201,6 @@ export const verifyAccount = async (req, res) => {
   }
 };
 
-// ---------------------- CHECK IF GOOGLE-ONLY ACCOUNT ----------------------
 export const checkGoogleAccount = async (req, res) => {
   try {
     const { email } = req.query;

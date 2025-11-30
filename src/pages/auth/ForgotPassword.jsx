@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function ForgotPassword() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -18,7 +20,7 @@ export default function ForgotPassword() {
     setLoading(true);
 
     try {
-      const res = await fetch("http://localhost:5000/api/password/forgot-password", {
+      const res = await fetch(`${API_URL}/api/password/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
@@ -65,7 +67,7 @@ export default function ForgotPassword() {
           {!success ? (
             <>
               <p className="text-center text-gray-700 mb-6">
-                Enter your registered <span className="font-semibold">WMSU email</span> and we’ll send a reset link.
+                Enter your registered <span className="font-semibold">WMSU email</span> and we'll send a reset link.
               </p>
 
               <form onSubmit={handleReset} className="w-72 flex flex-col">

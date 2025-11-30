@@ -3,6 +3,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 import { GoogleLogin } from "@react-oauth/google";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function CreateAccount() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
@@ -22,65 +24,62 @@ export default function CreateAccount() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-const handleCreate = async (e) => {
-  e.preventDefault();
+  const handleCreate = async (e) => {
+    e.preventDefault();
 
-  const { first_name, middle_name, last_name, username, email, password, confirm_password } = formData;
+    const { first_name, middle_name, last_name, username, email, password, confirm_password } = formData;
 
-  if (!first_name || !last_name || !username || !email || !password || !confirm_password) {
-    alert("Please fill out all required fields!");
-    return;
-  }
-
-  if (!email.endsWith("@wmsu.edu.ph")) {
-    alert("Only WMSU student email (@wmsu.edu.ph) is allowed.");
-    return;
-  }
-
-  if (password !== confirm_password) {
-    alert("Passwords do not match!");
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const res = await fetch("http://localhost:5000/api/auth", {  // Make sure route is correct!
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        first_name,
-        middle_name: middle_name || null,
-        last_name,
-        username,
-        email,
-        password
-      }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      throw new Error(data.message || "Failed to create account");
+    if (!first_name || !last_name || !username || !email || !password || !confirm_password) {
+      alert("Please fill out all required fields!");
+      return;
     }
 
-    // Success! Show message and redirect
-    alert("Account created successfully! Check your WMSU email for the verification code.");
+    if (!email.endsWith("@wmsu.edu.ph")) {
+      alert("Only WMSU student email (@wmsu.edu.ph) is allowed.");
+      return;
+    }
 
-    // Even if no full user object, we can still redirect
-    navigate(`/verify?email=${encodeURIComponent(email)}`);
+    if (password !== confirm_password) {
+      alert("Passwords do not match!");
+      return;
+    }
 
-  } catch (err) {
-    alert(err.message || "Something went wrong");
-  } finally {
-    setLoading(false);
-  }
-};
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_URL}/api/auth`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          first_name,
+          middle_name: middle_name || null,
+          last_name,
+          username,
+          email,
+          password
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to create account");
+      }
+
+      alert("Account created successfully! Check your WMSU email for the verification code.");
+      navigate(`/verify?email=${encodeURIComponent(email)}`);
+
+    } catch (err) {
+      alert(err.message || "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleGoogleSignUp = async (credentialResponse) => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:5000/api/auth/google", {
+      const res = await fetch(`${API_URL}/api/auth/google`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ idToken: credentialResponse.credential }),
@@ -135,7 +134,6 @@ const handleCreate = async (e) => {
               placeholder="Middle Name"
               value={formData.middle_name}
               onChange={handleChange}
-              required
               className="w-full p-2 rounded bg-gray-200 focus:ring-1 focus:ring-maroon"
             />
 

@@ -4,6 +4,8 @@ import axios from "axios";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState("profile");
   const [isSaved, setIsSaved] = useState(false);
@@ -20,34 +22,32 @@ export default function ProfilePage() {
   const [originalUser, setOriginalUser] = useState(null); 
   const fileInputRef = useRef();
 
-useEffect(() => {
-  const fetchUser = async () => {
-    try {
-      const token = localStorage.getItem("token");
-      const res = await axios.get("http://localhost:5000/api/users/me", {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setUser(res.data);
-      setOriginalUser(res.data);
-      setPhotoPreview(res.data.profile_photo || null);
-    } catch (err) {
-      console.error("Error fetching user:", err);
-      toast.error("Failed to fetch user data. Please try again.");
-    }
-  };
+  useEffect(() => {
+    const fetchUser = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        const res = await axios.get(`${API_URL}/api/users/me`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        setUser(res.data);
+        setOriginalUser(res.data);
+        setPhotoPreview(res.data.profile_photo || null);
+      } catch (err) {
+        console.error("Error fetching user:", err);
+        toast.error("Failed to fetch user data. Please try again.");
+      }
+    };
 
-  fetchUser();
-}, []);
+    fetchUser();
+  }, []);
 
-  // Input change handler
   const handleChange = (e) => {
     const { name, value } = e.target;
     setUser({ ...user, [name]: value });
   };
 
-  // Profile photo change
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -56,45 +56,40 @@ useEffect(() => {
     }
   };
 
-  // Save profile changes
-const handleSave = async () => {
-  try {
-    const formData = new FormData();
-    formData.append("first_name", user.first_name);
-    formData.append("middle_name", user.middle_name);
-    formData.append("last_name", user.last_name);
-    formData.append("username", user.username);
-    formData.append("bio", user.bio);
-    if (user.newPhotoFile) formData.append("profile_photo", user.newPhotoFile);
+  const handleSave = async () => {
+    try {
+      const formData = new FormData();
+      formData.append("first_name", user.first_name);
+      formData.append("middle_name", user.middle_name);
+      formData.append("last_name", user.last_name);
+      formData.append("username", user.username);
+      formData.append("bio", user.bio);
+      if (user.newPhotoFile) formData.append("profile_photo", user.newPhotoFile);
 
-    const token = localStorage.getItem("token");
-    const res = await axios.put("http://localhost:5000/api/users/me", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-        Authorization: `Bearer ${token}`
-      }
-    });
+      const token = localStorage.getItem("token");
+      const res = await axios.put(`${API_URL}/api/users/me`, formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${token}`
+        }
+      });
 
-    setUser(res.data);
-    setOriginalUser(res.data);
-    setPhotoPreview(res.data.profile_photo || null);
-    delete user.newPhotoFile;
+      setUser(res.data);
+      setOriginalUser(res.data);
+      setPhotoPreview(res.data.profile_photo || null);
+      delete user.newPhotoFile;
 
-    // show toast
-    toast.success("Profile updated successfully!");
+      toast.success("Profile updated successfully!");
 
-    // change button temporarily
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 2500);
 
-  } catch (err) {
-    console.error(err);
-    toast.error("Failed to update profile.");
-  }
-};
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update profile.");
+    }
+  };
 
-
-  // Cancel changes
   const handleCancel = () => {
     if (originalUser) {
       setUser(originalUser);
@@ -110,7 +105,6 @@ const handleSave = async () => {
           <div className="p-8 lg:p-10">
             <div className="max-w-5xl mx-auto">
 
-              {/* Tabs */}
               <div className="flex border-b border-gray-300 mb-8">
                 <button
                   onClick={() => setActiveTab("profile")}
@@ -134,7 +128,6 @@ const handleSave = async () => {
                 </button>
               </div>
 
-              {/* Profile Tab */}
               {activeTab === "profile" && (
                 <div className="space-y-7">
                   <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -143,7 +136,7 @@ const handleSave = async () => {
                         <img
                           src={
                             photoPreview.startsWith("/uploads")
-                              ? `http://localhost:3000${photoPreview}`
+                              ? `${API_URL}${photoPreview}`
                               : photoPreview
                           }
                           alt="Profile"
@@ -245,7 +238,6 @@ const handleSave = async () => {
                 </div>
               )}
 
-              {/* Settings Tab */}
               {activeTab === "settings" && (
                 <div className="space-y-7">
                     <h3 className="text-2xl text-amber-800">

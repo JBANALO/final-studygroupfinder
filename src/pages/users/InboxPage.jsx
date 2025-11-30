@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import api from "../../api";
+import axios from "axios";
 import { io } from "socket.io-client";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -17,6 +17,8 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function InboxPage() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +35,7 @@ export default function InboxPage() {
     if (!userId) return;
     setLoading(true);
     try {
-      const res = await axios.get(`http://localhost:5000/api/notifs/${userId}`);
+      const res = await axios.get(`${API_URL}/api/notifs/${userId}`);
       const data = res.data || [];
       setMessages(data);
       setUnreadCount(data.filter(n => !n.is_read && !n.is_archived && !n.is_deleted).length);
@@ -48,8 +50,7 @@ export default function InboxPage() {
     fetchNotifications();
 
     if (!userId) return;
-   const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const socket = io(API_URL, { transports: ["websocket", "polling"] });
+    const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
     socket.on("connect", () => socket.emit("join", userId));
 
@@ -66,7 +67,7 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
   const markRead = async (notif) => {
     if (!notif || notif.is_read) return;
     try {
-      await axios.patch(`http://localhost:5000/api/notifs/${notif.id}/read`);
+      await axios.patch(`${API_URL}/api/notifs/${notif.id}/read`);
       setMessages(prev => prev.map(m => m.id === notif.id ? { ...m, is_read: 1 } : m));
       setUnreadCount(prev => prev - 1);
     } catch (err) { console.error(err); }
@@ -74,14 +75,14 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
   const toggleStar = async (id, current) => {
     try {
-      await axios.patch(`http://localhost:5000/api/notifs/${id}/star`);
+      await axios.patch(`${API_URL}/api/notifs/${id}/star`);
       setMessages(prev => prev.map(m => m.id === id ? { ...m, is_starred: !current } : m));
     } catch (err) { toast.error("Failed"); }
   };
 
   const toggleArchive = async (id, current) => {
     try {
-      await axios.patch(`http://localhost:5000/api/notifs/${id}/archive`);
+      await axios.patch(`${API_URL}/api/notifs/${id}/archive`);
       setMessages(prev => prev.map(m => m.id === id ? { ...m, is_archived: !current } : m));
       if (selected?.id === id) setSelected(null);
     } catch (err) { toast.error("Failed"); }
@@ -89,25 +90,23 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
   const deleteNotification = async (id) => {
     try {
-      await axios.delete(`http://localhost:5000/api/notifs/${id}`);
+      await axios.delete(`${API_URL}/api/notifs/${id}`);
       setMessages(prev => prev.filter(m => m.id !== id));
       if (selected?.id === id) setSelected(null);
     } catch (err) { toast.error("Failed"); }
   };
 
-  // ✅ Approve join request
   const approveRequest = async (notif) => {
     try {
-      await axios.post("http://localhost:5000/api/group/approve", {
+      await axios.post(`${API_URL}/api/group/approve`, {
         groupId: notif.related_id,
         userId: notif.requester_id
       });
 
       toast.success("Member approved!");
 
-      // Mark creator's notification as read & archived
-      await axios.patch(`http://localhost:5000/api/notifs/${notif.id}/read`);
-      await axios.patch(`http://localhost:5000/api/notifs/${notif.id}/archive`);
+      await axios.patch(`${API_URL}/api/notifs/${notif.id}/read`);
+      await axios.patch(`${API_URL}/api/notifs/${notif.id}/archive`);
       setMessages(prev => prev.map(m => m.id === notif.id ? { ...m, is_read: 1, is_archived: 1 } : m));
 
     } catch (err) {
@@ -116,18 +115,17 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
     }
   };
 
-  // ✅ Decline join request
   const declineRequest = async (notif) => {
     try {
-      await axios.post("http://localhost:5000/api/group/decline", {
+      await axios.post(`${API_URL}/api/group/decline`, {
         groupId: notif.related_id,
         userId: notif.requester_id
       });
 
       toast.success("Request declined!");
 
-      await axios.patch(`http://localhost:5000/api/notifs/${notif.id}/read`);
-      await axios.patch(`http://localhost:5000/api/notifs/${notif.id}/archive`);
+      await axios.patch(`${API_URL}/api/notifs/${notif.id}/read`);
+      await axios.patch(`${API_URL}/api/notifs/${notif.id}/archive`);
       setMessages(prev => prev.map(m => m.id === notif.id ? { ...m, is_read: 1, is_archived: 1 } : m));
     } catch (err) {
       console.error(err);
@@ -135,7 +133,6 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
     }
   };
 
-  // Filter messages properly: join requests for creators only
   const filteredMessages = messages.filter(m => {
     if (m.is_deleted || (m.is_archived && filter !== "archived")) return false;
 
@@ -152,7 +149,6 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
 
   return (
     <div className="flex h-[calc(100vh-200px)] max-w-7xl mx-auto bg-white shadow-xl rounded-xl border border-gray-300 overflow-hidden">
-      {/* SIDEBAR */}
       <aside className="w-64 bg-[#800000] text-white p-4 flex flex-col">
         <h2 className="font-bold text-xl mb-6 flex items-center gap-2">
           <BellIcon className="w-6 h-6" /> Inbox
@@ -188,7 +184,6 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
         </div>
       </aside>
 
-      {/* MAIN LIST */}
       <main className="flex-1 flex">
         <section className="flex-1 overflow-y-auto">
           <div className="p-4 border-b bg-gray-50 flex justify-between items-center">
@@ -267,7 +262,6 @@ const socket = io(API_URL, { transports: ["websocket", "polling"] });
           )}
         </section>
 
-        {/* DETAIL PANEL */}
         <aside className="w-96 border-l bg-gray-50 p-6">
           {selected ? (
             <div>

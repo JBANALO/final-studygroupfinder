@@ -13,6 +13,8 @@ import {
   BellAlertIcon,
 } from "@heroicons/react/24/outline";
 
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+
 export default function JoinViewPage() {
   const { groupId } = useParams();
   const navigate = useNavigate();
@@ -50,13 +52,12 @@ export default function JoinViewPage() {
 
   const socketRef = useRef(null);
 
-  // --- Load group, messages, schedules & setup socket ---
   useEffect(() => {
     if (!userId || !groupId) return;
 
     const loadGroup = async () => {
       try {
-        const allGroupsRes = await axios.get("http://localhost:5000/api/group/all");
+        const allGroupsRes = await axios.get(`${API_URL}/api/group/all`);
         const foundGroup = allGroupsRes.data.data.find(g => g.id === parseInt(groupId));
 
         if (!foundGroup) {
@@ -66,10 +67,9 @@ export default function JoinViewPage() {
         }
         setGroup(foundGroup);
 
-        // Check if approved
         let status = "none";
         try {
-          const joinedRes = await axios.get(`http://localhost:5000/api/group/my-joined/${userId}`);
+          const joinedRes = await axios.get(`${API_URL}/api/group/my-joined/${userId}`);
           const joinedIds = joinedRes.data.data?.map(g => g.id) || [];
           if (joinedIds.includes(parseInt(groupId))) status = "approved";
         } catch {}
@@ -77,7 +77,7 @@ export default function JoinViewPage() {
         if (status !== "approved") {
           try {
             const pendingRes = await axios.get(
-              "http://localhost:5000/api/group/pending-members-for-user",
+              `${API_URL}/api/group/pending-members-for-user`,
               { params: { userId } }
             );
             const pendingIds = pendingRes.data.data || [];
@@ -87,11 +87,9 @@ export default function JoinViewPage() {
 
         setUserStatus(status);
 
-        // Load messages, events, announcements if approved or creator
         if (status === "approved" || foundGroup.created_by === userId) {
-          // --- Messages ---
           try {
-            const msgRes = await axios.get(`http://localhost:5000/api/messages/${groupId}/messages`);
+            const msgRes = await axios.get(`${API_URL}/api/messages/${groupId}/messages`);
             const mappedMsgs = msgRes.data.messages.map(m => ({
               ...m,
               senderName: m.sender_name || (m.sender_id === userId ? userName : "Unknown"),
@@ -99,9 +97,8 @@ export default function JoinViewPage() {
             setMessages(mappedMsgs);
           } catch { setMessages([]); }
 
-          // --- Events ---
           try {
-            const schedRes = await axios.get(`http://localhost:5000/api/calendar/group/${groupId}`);
+            const schedRes = await axios.get(`${API_URL}/api/calendar/group/${groupId}`);
             const schedules = schedRes.data.schedules || [];
             setEvents(schedules.map(s => ({
               ...s,
@@ -113,9 +110,8 @@ export default function JoinViewPage() {
             })));
           } catch { setEvents([]); }
 
-          // --- Announcements ---
           try {
-            const annRes = await axios.get(`http://localhost:5000/api/announcements/group/${groupId}`);
+            const annRes = await axios.get(`${API_URL}/api/announcements/group/${groupId}`);
             setAnnouncements(annRes.data.announcements || []);
           } catch (err) {
             console.error("Failed to load announcements:", err);
@@ -131,16 +127,13 @@ export default function JoinViewPage() {
 
     loadGroup();
 
-    // --- Initialize socket ---
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const socket = io(API_URL, { 
-  transports: ["websocket", "polling"],
+    const socket = io(API_URL, { 
+      transports: ["websocket", "polling"],
       withCredentials: true 
     });
     socketRef.current = socket;
     socket.emit("join_group", parseInt(groupId));
 
-    // --- Socket listeners ---
     socket.on("receive_message", (data) => {
       const { groupId: receivedGroupId, message } = data;
       if (parseInt(receivedGroupId) === parseInt(groupId)) {
@@ -198,36 +191,34 @@ const socket = io(API_URL, {
     setInputText("");
   };
 
-  // --- File upload ---
-const handleFileUpload = async (e) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  const formData = new FormData();
-  formData.append("file", file);
+    const formData = new FormData();
+    formData.append("file", file);
 
-  try {
-    const res = await axios.post("http://localhost:5000/api/upload", formData);
-    const msg = {
-      groupId: parseInt(groupId),
-      sender: userId,
-      text: file.name,
-      fileLink: res.data.fileUrl,
-      time: new Date().toISOString()
-    };
-    socketRef.current.emit("send_message", msg);
-    e.target.value = null;
+    try {
+      const res = await axios.post(`${API_URL}/api/upload`, formData);
+      const msg = {
+        groupId: parseInt(groupId),
+        sender: userId,
+        text: file.name,
+        fileLink: res.data.fileUrl,
+        time: new Date().toISOString()
+      };
+      socketRef.current.emit("send_message", msg);
+      e.target.value = null;
 
-    toast.success(`File "${file.name}" uploaded successfully!`);
-  } catch {
-    toast.error(`Failed to upload file "${file.name}".`);
-  }
-};
+      toast.success(`File "${file.name}" uploaded successfully!`);
+    } catch {
+      toast.error(`Failed to upload file "${file.name}".`);
+    }
+  };
 
-  // --- Join group ---
   const handleJoinGroup = async () => {
     try {
-      await axios.post(`http://localhost:5000/api/group/join`, { groupId: parseInt(groupId), userId });
+      await axios.post(`${API_URL}/api/group/join`, { groupId: parseInt(groupId), userId });
       setUserStatus("pending");
       toast.success("Join request sent! Waiting for creator approval.");
     } catch (err) {
@@ -266,7 +257,7 @@ const handleFileUpload = async (e) => {
       };
 
       const res = await axios.post(
-        `http://localhost:5000/api/calendar/group/${groupId}`,
+        `${API_URL}/api/calendar/group/${groupId}`,
         payload
       );
 
@@ -290,7 +281,7 @@ const handleFileUpload = async (e) => {
 
   const handlePostAnnouncement = async () => {
     try {
-      await axios.post("http://localhost:5000/api/announcements/create", {
+      await axios.post(`${API_URL}/api/announcements/create`, {
         groupId: group.id,
         userId: currentUser.id,
         title: announceTitle,
@@ -308,17 +299,16 @@ const handleFileUpload = async (e) => {
     }
   };
 
-useEffect(() => {
-  setTimeout(() => {
-    lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, 0);
-}, [messages]);
+  useEffect(() => {
+    setTimeout(() => {
+      lastMessageRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 0);
+  }, [messages]);
 
   if (!group) return <div className="flex items-center font-bold justify-center min-h-screen">Loading group...</div>;
 
 return (
   <div className="flex h-[calc(100vh-12rem)] max-w-7xl mx-auto bg-white rounded-xl shadow-xl overflow-hidden border border-gray-300">
-    {/* LEFT PANEL */}
     <div className="flex-1 flex flex-col">
       <div className="p-8 border-b">
         <div className="flex justify-between items-start mb-6">
@@ -329,9 +319,7 @@ return (
           <span className="bg-yellow-400 text-[#800000] px-6 py-3 rounded-full font-semibold text-lg">{group.topic}</span>
         </div>
 
-        {/* Members Section */}
         <div className="flex flex-col gap-2">
-          {/* Member usernames */}
           <div className="flex flex-wrap gap-3 mb-3">
             {group.members?.map((m, i) => (
               <div
@@ -343,7 +331,6 @@ return (
             ))}
           </div>
 
-          {/* Leave Group Button */}
           <div className="flex gap-2 -mt-3 justify-end">
           <div className="flex items-center gap-2 text-sm text-gray-800 mb-2 mr-28">
             <UserGroupIcon className="w-7 h-7 text-[#800000]" />
@@ -366,7 +353,7 @@ return (
                         onClick={async () => {
                           closeToast();
                           try {
-                            await axios.post("http://localhost:5000/api/group/leave", {
+                            await axios.post(`${API_URL}/api/group/leave`, {
                               userId: currentUser.id,
                               groupId: group.id,
                             });
@@ -425,7 +412,6 @@ return (
             ) : (
               (() => {
                 const combinedEvents = [
-                  // Real study meetings
                   ...events.map(e => ({
                     ...e,
                     isAnnouncement: false,
@@ -434,7 +420,6 @@ return (
                     color: "bg-green-100",
                   })),
 
-                  // Announcements
                   ...announcements.map(a => ({
                     title: a.title,
                     start: new Date(a.created_at),
@@ -447,8 +432,6 @@ return (
                     isAnnouncement: true,
                   }))
                 ].sort((a, b) => a.start - b.start);
-
-                console.log("Combined events for debugging:", combinedEvents); // Debug
 
                 return combinedEvents.map((event, i) => (
                   <div
@@ -489,7 +472,6 @@ return (
           ) : (
             <p className="text-sm text-gray-600">{event.location}</p>
           )}
-                    {/* Description */}
                     {event.description && !event.isAnnouncement && (
                       <p className="text-sm text-gray-700 leading-relaxed">
                         <strong>{event.description}</strong>
@@ -501,7 +483,6 @@ return (
             )}
           </div>
 
-        {/* Announcement Modal */}
         {selectedAnnouncement && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-lg w-11/12 md:w-1/2 p-6 relative max-h-[80vh] overflow-y-auto">
@@ -524,7 +505,6 @@ return (
       </div>
     </div>
 
-    {/* RIGHT PANEL: Chat */}
     <aside className="w-96 border-l border-gray-300 bg-gray-50 flex flex-col">
       <div className="p-4 border-b bg-white flex items-center gap-3">
         <ChatBubbleLeftEllipsisIcon className="w-6 h-6 text-[#800000]" />
@@ -534,7 +514,6 @@ return (
       <div className="flex-1 overflow-y-auto scrollbar-hide p-4 space-y-4">
         {messages.map((msg, i) => {
           const isMe = msg.sender_id === userId;
-          const isLast = i === messages.length - 1;
           return (
             <div key={i} className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}>
               <span className="text-xs text-gray-500 mb-1 font-medium">{msg.sender_name}</span>
@@ -572,7 +551,6 @@ return (
       </div>
     </aside>
 
-{/* Schedule Modal — Perfectly Centered */}
 {showModal && (
   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div className="bg-white rounded-xl p-8 w-96 shadow-2xl">
@@ -616,7 +594,6 @@ return (
           className="w-full p-3 border rounded-lg h-24"
         ></textarea>
 
-{/* Meeting Type Selector */}
 <div className="flex items-center gap-4">
   <label className="text-gray-700 font-medium">Meeting Type:</label>
   <select
@@ -629,7 +606,6 @@ return (
   </select>
 </div>
 
-{/* Location (required if physical) */}
 {meetingType === "physical" && (
   <input
     type="text"
@@ -641,7 +617,6 @@ return (
   />
 )}
 
-{/* Meeting Link (display only if online) */}
 {meetingType === "online" && (
   <div className="flex items-center gap-2 text-sm text-gray-700">
     <span className="font-medium">Online Meeting:</span>
@@ -673,12 +648,10 @@ return (
   </div>
 )}
 
-{/* Announcements Modal */}
 {showAnnouncementsModal && (
   <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
     <div className="bg-white rounded-xl p-8 w-96 shadow-2xl">
 
-      {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold text-[#800000] tracking-wide">
           Post Announcement
@@ -688,7 +661,6 @@ return (
         </button>
       </div>
 
-      {/* Form */}
       <input
         type="text"
         value={announceTitle}
@@ -703,7 +675,6 @@ return (
         className="w-full border px-4 py-2 rounded-lg mb-4 h-28"
       />
 
-      {/* Action Buttons */}
       <div className="flex justify-end gap-3 mt-2">
         <button
           onClick={() => setShowAnnouncements(false)}

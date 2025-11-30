@@ -5,7 +5,7 @@ import {
   ChatBubbleLeftRightIcon,
   FlagIcon,
 } from "@heroicons/react/24/solid";
-import axios from "axios";
+import api from "../../api";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -22,7 +22,7 @@ export default function AdminDashboard() {
   // Fetch dashboard stats
   const fetchStats = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/dashboard");
+      const res = await api.get("/admin/dashboard");
       setStats(res.data);
     } catch (err) {
       console.error("Failed to fetch dashboard stats:", err);
@@ -32,7 +32,7 @@ export default function AdminDashboard() {
   // Fetch recent activities
   const fetchActivities = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/admin/activities");
+      const res = await api.get("/admin/activities");
       setActivities(res.data || []);
     } catch (err) {
       console.error("Failed to fetch activities:", err);

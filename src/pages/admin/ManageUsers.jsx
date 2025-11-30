@@ -1,6 +1,6 @@
 // src/pages/admin/ManageUsers.jsx
 import { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../api";
 import {
   EnvelopeIcon,
   TrashIcon,
@@ -21,7 +21,7 @@ export default function ManageUsers() {
   // Fetch users
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/user/admin-list");
+      const res = await api.get("/user/admin-list");
       setUsers(res.data || []);
     } catch (err) {
       console.error("Failed to fetch users:", err);
@@ -39,7 +39,7 @@ export default function ManageUsers() {
   const deleteUser = async (userId) => {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     try {
-      await axios.delete(`http://localhost:5000/api/user/delete/${userId}`);
+      await api.delete(`/user/delete/${userId}`);
       toast.success("User deleted successfully!");
       fetchUsers();
     } catch (err) {

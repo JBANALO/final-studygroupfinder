@@ -38,10 +38,41 @@ const server = http.createServer(app);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ✅ Get frontend URL from environment variable
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+// ✅ Define allowed origins
+const allowedOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:3000',
+  FRONTEND_URL,
+  'https://wmsu-study-group-finder-frontend.onrender.com',
+  'https://wmsu-study-group-finder.onrender.com'
+];
+
+console.log('🌐 Allowed CORS Origins:', allowedOrigins);
+
+// ✅ Body parser middleware
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// ✅ Updated CORS Configuration
 app.use(cors({
-  origin: "http://localhost:5173",
-  credentials: true
+  origin: function(origin, callback) {
+    // Allow requests with no origin (mobile apps, Postman, curl)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`❌ Blocked by CORS: ${origin}`);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // Serve uploaded files statically
@@ -59,13 +90,26 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Local Upload Endpoint
+// ✅ Updated Upload Endpoint - Use environment variable
 app.post("/api/upload", upload.single("file"), (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
   
-  // Construct public URL
-  const fileUrl = `http://localhost:5000/uploads/${req.file.filename}`;
+  // ✅ Construct public URL using environment variable
+  const baseURL = process.env.NODE_ENV === 'production' 
+    ? process.env.BACKEND_URL || 'https://wmsu-study-group-finder.onrender.com'
+    : 'http://localhost:5000';
+  
+  const fileUrl = `${baseURL}/uploads/${req.file.filename}`;
   res.json({ fileUrl, filename: req.file.originalname });
+});
+
+// ✅ Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    socketConnections: io.engine.clientsCount,
+    environment: process.env.NODE_ENV || 'development'
+  });
 });
 
 // Mount routes
@@ -87,30 +131,50 @@ app.use("/api/users", userRoutes);
 app.use("/api/notifs", notifRoutes);
 app.use("/api/announcements", announcementRoutes);
 
-// === Socket.io Setup ===
+// ✅ Updated Socket.io Setup with proper CORS
 const io = new IOServer(server, {
   cors: {
-    origin: "http://localhost:5173",
-    methods: ["GET", "POST"]
-  }
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
+  connectTimeout: 45000
 });
 
 app.set("io", io);
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  console.log("✅ Socket connected:", socket.id);
 
+  // User joins their personal room for notifications
   socket.on("join", (userId) => {
-    if (userId) socket.join(`user_${userId}`);
+    if (userId) {
+      socket.join(`user_${userId}`);
+      console.log(`👤 User ${userId} joined personal room`);
+    }
   });
 
+  // User joins a group
   socket.on("join_group", (groupId) => {
     socket.join(`group_${groupId}`);
-    console.log(`User ${socket.id} joined group_${groupId}`);
+    console.log(`📚 Socket ${socket.id} joined group_${groupId}`);
   });
 
+  // User leaves a group
+  socket.on("leave_group", (groupId) => {
+    socket.leave(`group_${groupId}`);
+    console.log(`🚪 Socket ${socket.id} left group_${groupId}`);
+  });
+
+  // Send message to group
   socket.on("send_message", async ({ groupId, sender, text, fileLink }) => {
     try {
+      console.log('💬 Message sent to group:', groupId);
+      
       // 1. Save to DB
       const [result] = await pool.execute(
         `INSERT INTO group_messages (group_id, sender_id, text, file_link, time)
@@ -118,6 +182,7 @@ io.on("connection", (socket) => {
         [groupId, sender, text || null, fileLink || null]
       );
 
+      // 2. Fetch the new message with sender info
       const [newMsg] = await pool.execute(
         `SELECT 
           gm.id, 
@@ -133,7 +198,7 @@ io.on("connection", (socket) => {
         [result.insertId]
       );
 
-      // 3. Broadcast
+      // 3. Broadcast to group
       io.to(`group_${groupId}`).emit("receive_message", {
         groupId: parseInt(groupId),
         message: newMsg[0],
@@ -144,16 +209,60 @@ io.on("connection", (socket) => {
     }
   });
 
-  // 🔹 Real-time schedule listener
+  // Schedule created
   socket.on("schedule_created", (schedule) => {
     if (!schedule.groupId) return;
+    console.log('📅 Schedule created for group:', schedule.groupId);
     socket.broadcast.to(`group_${schedule.groupId}`).emit("new_schedule", schedule);
   });
 
-  socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
+  // New announcement
+  socket.on("newAnnouncement", (data) => {
+    if (!data.group_id) return;
+    console.log('📢 Announcement for group:', data.group_id);
+    io.to(`group_${data.group_id}`).emit('newAnnouncement', data);
   });
-}); // <-- this closes io.on("connection")
 
+  // Join request approved
+  socket.on("request_approved", (data) => {
+    if (!data.userId) return;
+    console.log('✅ Join request approved:', data);
+    io.to(`user_${data.userId}`).emit('request_approved', data);
+  });
+
+  // Notification sent
+  socket.on("notification", (data) => {
+    if (!data.userId) return;
+    console.log('🔔 Notification sent to user:', data.userId);
+    io.to(`user_${data.userId}`).emit('notification', data);
+  });
+
+  // Disconnect
+  socket.on("disconnect", (reason) => {
+    console.log("❌ Socket disconnected:", socket.id, "Reason:", reason);
+  });
+
+  // Error handling
+  socket.on("error", (error) => {
+    console.error("🔥 Socket error:", error);
+  });
+});
+
+// ✅ Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Server Error:', err);
+  res.status(500).json({ 
+    success: false, 
+    message: err.message || 'Internal server error' 
+  });
+});
+
+// ✅ Start server - bind to 0.0.0.0 for Render
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`
+    🚀 Server running on port ${PORT}
+    🌍 Environment: ${process.env.NODE_ENV || 'development'}
+    🔗 Allowed origins: ${allowedOrigins.join(', ')}
+  `);
+});

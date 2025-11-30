@@ -6,7 +6,6 @@ import { pool } from "../config/db.js";
 
 const router = express.Router();
 
-// Multer setup
 const storage = multer.diskStorage({
   destination: "uploads/profile_photos",
   filename: (req, file, cb) => {
@@ -16,16 +15,12 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// Serve uploads
 router.use("/uploads", express.static("uploads"));
 
-// GET current user
-// GET current user — DIAGNOSTIC VERSION (copy-paste this)
 router.get("/me", verifyToken, async (req, res) => {
-  console.log("verifyToken passed — req.user:", req.user); // ← MUST SEE { id: 25 }
+  console.log("verifyToken passed — req.user:", req.user);
 
   try {
-    // First: simple test query
     const [test] = await pool.query("SELECT id, first_name FROM users WHERE id = ?", [req.user.id]);
     console.log("Simple query result:", test);
 
@@ -33,7 +28,6 @@ router.get("/me", verifyToken, async (req, res) => {
       return res.status(404).json({ message: "User not found — wrong ID?" });
     }
 
-    // Second: full safe query
     const [results] = await pool.query(
       `SELECT 
          id,
@@ -52,8 +46,10 @@ router.get("/me", verifyToken, async (req, res) => {
     const user = results[0];
     console.log("Full user fetched:", user);
 
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+    
     if (user.profile_photo) {
-      user.profile_photo = `http://localhost:5000/uploads/profile_photos/${user.profile_photo}`;
+      user.profile_photo = `${BACKEND_URL}/uploads/profile_photos/${user.profile_photo}`;
     }
 
     res.json(user);
@@ -69,7 +65,6 @@ router.get("/me", verifyToken, async (req, res) => {
   }
 });
 
-// PUT update user
 router.put("/me", verifyToken, upload.single("profile_photo"), async (req, res) => {
   const { first_name, middle_name, last_name, username, bio } = req.body;
   const profile_photo = req.file ? req.file.filename : null;
@@ -94,8 +89,11 @@ router.put("/me", verifyToken, upload.single("profile_photo"), async (req, res) 
     );
 
     const updatedUser = updatedResults[0];
+    
+    const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:5000';
+    
     if (updatedUser.profile_photo) {
-      updatedUser.profile_photo = `http://localhost:5000/uploads/profile_photos/${updatedUser.profile_photo}`;
+      updatedUser.profile_photo = `${BACKEND_URL}/uploads/profile_photos/${updatedUser.profile_photo}`;
     }
 
     res.json(updatedUser);

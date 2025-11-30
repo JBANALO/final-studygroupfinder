@@ -49,10 +49,9 @@ export default function CreateGroupPage() {
     console.log("Payload being sent:", payload);
 
     try {
-      const response = await api.post("http://localhost:5000/api/group/create", payload);
+      const response = await api.post("/api/group/create", payload);
       toast.success(response.data.message || "Group created successfully!");
 
-      // Reset form
       setGroupName("");
       setDescription("");
       setCourse("");
@@ -70,7 +69,6 @@ export default function CreateGroupPage() {
 return (
   <div className="flex h-[calc(100vh-180px)] max-w-3xl mx-auto bg-gradient-to-br from-gray-50 to-gray-100 shadow-2xl rounded-2xl border border-gray-200 overflow-hidden">
     <div className="flex-1 p-10 flex flex-col overflow-y-auto scrollbar-hide">
-      {/* Page Title */}
       <div className="mb-10">
         <h1 className="text-4xl font-extrabold text-[#800000] tracking-tight">
           Create a Study Group
@@ -80,11 +78,9 @@ return (
         </p>
       </div>
 
-      {/* Form Card */}
       <div className="bg-white rounded-2xl shadow-lg p-8 border border-gray-200">
         <form className="space-y-6" onSubmit={handleSubmit}>
 
-          {/* Group Name */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Group Name</label>
             <input
@@ -96,7 +92,6 @@ return (
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Description</label>
             <textarea
@@ -107,7 +102,6 @@ return (
             />
           </div>
 
-          {/* Course */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Course</label>
             <input
@@ -119,7 +113,6 @@ return (
             />
           </div>
 
-          {/* Topic */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Topic</label>
             <input
@@ -131,7 +124,6 @@ return (
             />
           </div>
 
-          {/* Location */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Location</label>
             <input
@@ -143,7 +135,6 @@ return (
             />
           </div>
 
-          {/* Group Size */}
           <div>
             <label className="text-gray-700 font-medium text-sm">Group Size</label>
             <input
@@ -155,7 +146,6 @@ return (
             />
           </div>
 
-          {/* Submit button */}
           <button
             type="submit"
             className="w-full py-4 bg-gradient-to-r from-[#800000] to-[#6b0000] text-white text-lg rounded-xl font-bold shadow-md hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
