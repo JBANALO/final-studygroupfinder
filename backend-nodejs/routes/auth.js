@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const bcrypt = require('bcrypt');
 
 // Register endpoint
 router.post('/register', async (req, res) => {
@@ -17,10 +18,13 @@ router.post('/register', async (req, res) => {
       return res.status(400).json({ error: 'User already exists' });
     }
     
-    // Insert new user
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    // Insert new user with hashed password
     const newUser = await pool.query(
-      'INSERT INTO users (first_name, last_name, username, email, password) VALUES ($1, $2, $3, $4, $5) RETURNING id, first_name, last_name, username, email',
-      [firstName, lastName, username, email, password]
+      'INSERT INTO users (first_name, last_name, username, email, password, is_verified) VALUES ($1, $2, $3, $4, $5, 1) RETURNING id, first_name, last_name, username, email',
+      [firstName, lastName, username, email, hashedPassword]
     );
     
     res.json({ 
@@ -38,16 +42,27 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    const user = await pool.query(
-      'SELECT * FROM users WHERE email = $1 AND password = $2',
-      [email, password]
+    // Find user by email
+    const result = await pool.query(
+      'SELECT * FROM users WHERE email = $1',
+      [email]
     );
     
-    if (user.rows.length === 0) {
+    if (result.rows.length === 0) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    const { password: _, ...userWithoutPassword } = user.rows[0];
+    const user = result.rows[0];
+    
+    // Compare hashed password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    
+    if (!isValidPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = user;
     
     res.json({ 
       message: 'Login successful',
@@ -64,7 +79,9 @@ router.post('/google', async (req, res) => {
   try {
     const { credential } = req.body;
     
-    // TODO: Verify Google token here
+    // TODO: Verify Google token and extract email
+    // For now, return a placeholder response
+    
     res.json({ 
       message: 'Google login successful',
       user: { email: 'test@example.com' }
