@@ -88,6 +88,47 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
+  
+
+// Temporary migration endpoint - REMOVE after running once!
+app.get('/migrate', async (req, res) => {
+  try {
+    const pool = require('./db'); // ✅ ADD THIS LINE
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        first_name VARCHAR(100),
+        middle_name VARCHAR(100),
+        last_name VARCHAR(100),
+        username VARCHAR(100) NOT NULL UNIQUE,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255),
+        google_id VARCHAR(255),
+        is_verified BOOLEAN DEFAULT false,
+        verification_code VARCHAR(10),
+        reset_password_token VARCHAR(255),
+        reset_password_expire TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        status VARCHAR(20) DEFAULT 'active',
+        bio TEXT,
+        profile_photo VARCHAR(255),
+        is_admin BOOLEAN DEFAULT false
+      );
+    `);
+    
+    res.json({ 
+      success: true,
+      message: '✅ Migration successful!' 
+    });
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
 
 // Import routes
 const groupRoutes = require('./routes/group');
