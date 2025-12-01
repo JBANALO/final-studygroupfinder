@@ -94,8 +94,12 @@ app.get('/migrate', async (req, res) => {
   try {
     const pool = require('./db');
     
+    // Drop the existing users table if it exists
+    await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
+    
+    // Create the users table with correct schema
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS users (
+      CREATE TABLE users (
         id SERIAL PRIMARY KEY,
         first_name VARCHAR(100),
         middle_name VARCHAR(100),
@@ -118,7 +122,7 @@ app.get('/migrate', async (req, res) => {
     
     res.json({ 
       success: true,
-      message: '✅ Users table created successfully!' 
+      message: '✅ Users table dropped and recreated successfully!' 
     });
   } catch (error) {
     console.error('Migration error:', error);
