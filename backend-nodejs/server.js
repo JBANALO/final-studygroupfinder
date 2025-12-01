@@ -8,7 +8,6 @@ const { Server: IOServer } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
-// ✅ Socket.IO Setup with proper CORS
 const io = new IOServer(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
@@ -17,20 +16,16 @@ const io = new IOServer(server, {
   }
 });
 
-// Make io accessible to routes
 app.set('io', io);
 
-// Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log('✅ User connected:', socket.id);
 
-  // Join group rooms
   socket.on('join-group', (groupId) => {
     socket.join(`group-${groupId}`);
     console.log(`User ${socket.id} joined group-${groupId}`);
   });
 
-  // Leave group rooms
   socket.on('leave-group', (groupId) => {
     socket.leave(`group-${groupId}`);
     console.log(`User ${socket.id} left group-${groupId}`);
@@ -41,88 +36,96 @@ io.on('connection', (socket) => {
   });
 });
 
-// CORS configuration for production
 const allowedOrigins = [
   process.env.FRONTEND_URL,
   'https://final-studygroupfinder.vercel.app',
   'http://localhost:3000'
 ].filter(Boolean);
 
-const corsOptions = {
+app.use(cors({
   origin: allowedOrigins,
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
-};
+}));
 
-app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve uploaded files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Health check
-app.get('/', (req, res) => res.json({ 
-  message: 'Study Group API running',
-  status: 'ok',
-  timestamp: new Date().toISOString()
-}));
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Study Group API running',
+    status: 'ok',
+    timestamp: new Date().toISOString()
+  });
+});
 
-// Database health check
 app.get('/api/health', async (req, res) => {
   try {
     const pool = require('./db');
     await pool.query('SELECT 1');
-    res.json({ 
-      status: 'healthy', 
+    res.json({
+      status: 'healthy',
       database: 'connected',
       timestamp: new Date().toISOString()
     });
   } catch (error) {
-    res.status(500).json({ 
-      status: 'unhealthy', 
+    res.status(500).json({
+      status: 'unhealthy',
       database: 'disconnected',
-      error: error.message 
+      error: error.message
     });
   }
 });
 
-// ✅ Temporary migration endpoint - REMOVE after running once!
-app.get('/migrate', async (req, res) => {
+app.get('/migrate-groups', async (req, res) => {
   try {
     const pool = require('./db');
     
-    // Drop the existing users table if it exists
-    await pool.query(`DROP TABLE IF EXISTS users CASCADE;`);
-    
-    // Create the users table with correct schema
     await pool.query(`
-      CREATE TABLE users (
+      CREATE TABLE IF NOT EXISTS groups (
         id SERIAL PRIMARY KEY,
-        first_name VARCHAR(100),
-        middle_name VARCHAR(100),
-        last_name VARCHAR(100),
-        username VARCHAR(100) NOT NULL UNIQUE,
-        email VARCHAR(255) NOT NULL UNIQUE,
-        password VARCHAR(255),
-        google_id VARCHAR(255),
-        is_verified BOOLEAN DEFAULT false,
-        verification_code VARCHAR(10),
-        reset_password_token VARCHAR(255),
-        reset_password_expire TIMESTAMP,
+        group_name VARCHAR(255) NOT NULL,
+        topic VARCHAR(255),
+        description TEXT,
+        course VARCHAR(100),
+        location VARCHAR(255),
+        size INTEGER NOT NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'pending',
+        remarks TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        status VARCHAR(20) DEFAULT 'active',
-        bio TEXT,
-        profile_photo VARCHAR(255),
-        is_admin BOOLEAN DEFAULT false
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS group_members (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        status VARCHAR(20) DEFAULT 'pending',
+        joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(group_id, user_id)
+      );
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS messages (
+        id SERIAL PRIMARY KEY,
+        group_id INTEGER REFERENCES groups(id) ON DELETE CASCADE,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        message TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
     
     res.json({ 
       success: true,
-      message: '✅ Users table dropped and recreated successfully!' 
+      message: '✅ Group tables created successfully!' 
     });
   } catch (error) {
     console.error('Migration error:', error);
@@ -133,15 +136,12 @@ app.get('/migrate', async (req, res) => {
   }
 });
 
-// Import routes
 const groupRoutes = require('./routes/group');
 const authRoutes = require('./routes/auth');
 
-// Use routes
 app.use('/api/group', groupRoutes);
 app.use('/api/auth', authRoutes);
 
-// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
   res.status(err.status || 500).json({
@@ -152,17 +152,15 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 404 handler
 app.use((req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Route not found',
-    path: req.path 
+    path: req.path
   });
 });
 
 const PORT = process.env.PORT || 5000;
 
-// ✅ Use server.listen instead of app.listen
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📝 Environment: ${process.env.NODE_ENV || 'development'}`);
@@ -170,7 +168,6 @@ server.listen(PORT, () => {
   console.log(`🔌 Socket.IO enabled`);
 });
 
-// Graceful shutdown
 process.on('SIGTERM', () => {
   console.log('SIGTERM signal received: closing HTTP server');
   server.close(() => {
