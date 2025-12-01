@@ -89,9 +89,12 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
+// Migration endpoint - creates group tables
 app.get('/migrate-groups', async (req, res) => {
   try {
     const pool = require('./db');
+    
+    console.log('🔄 Starting group tables migration...');
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS groups (
@@ -109,6 +112,7 @@ app.get('/migrate-groups', async (req, res) => {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log('✅ Groups table created/verified');
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS group_members (
@@ -120,6 +124,7 @@ app.get('/migrate-groups', async (req, res) => {
         UNIQUE(group_id, user_id)
       );
     `);
+    console.log('✅ Group_members table created/verified');
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS messages (
@@ -130,16 +135,115 @@ app.get('/migrate-groups', async (req, res) => {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
+    console.log('✅ Messages table created/verified');
     
     res.json({ 
       success: true,
       message: '✅ Group tables created successfully!' 
     });
   } catch (error) {
-    console.error('Migration error:', error);
+    console.error('❌ Migration error:', error);
     res.status(500).json({ 
       success: false,
       error: error.message 
+    });
+  }
+});
+
+// Debug endpoint - check database structure
+app.get('/api/debug/tables', async (req, res) => {
+  try {
+    const pool = require('./db');
+    
+    // Check if tables exist
+    const tables = await pool.query(`
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = 'public' 
+      AND table_name IN ('groups', 'group_members', 'messages', 'users')
+      ORDER BY table_name
+    `);
+    
+    // Check columns in groups table
+    const groupsColumns = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'groups'
+      ORDER BY ordinal_position
+    `);
+    
+    // Check columns in group_members table
+    const membersColumns = await pool.query(`
+      SELECT column_name, data_type, is_nullable, column_default
+      FROM information_schema.columns 
+      WHERE table_name = 'group_members'
+      ORDER BY ordinal_position
+    `);
+    
+    // Count records
+    const groupCount = await pool.query('SELECT COUNT(*) FROM groups');
+    const memberCount = await pool.query('SELECT COUNT(*) FROM group_members');
+    const userCount = await pool.query('SELECT COUNT(*) FROM users');
+    
+    // Try a simple groups query
+    const testQuery = await pool.query('SELECT * FROM groups LIMIT 1');
+    
+    res.json({
+      success: true,
+      tables_found: tables.rows.map(t => t.table_name),
+      groups_columns: groupsColumns.rows,
+      group_members_columns: membersColumns.rows,
+      record_counts: {
+        groups: parseInt(groupCount.rows[0].count),
+        members: parseInt(memberCount.rows[0].count),
+        users: parseInt(userCount.rows[0].count)
+      },
+      sample_group: testQuery.rows[0] || null
+    });
+  } catch (error) {
+    console.error('Debug error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      detail: error.detail,
+      hint: error.hint
+    });
+  }
+});
+
+// Debug endpoint - test group list query
+app.get('/api/debug/test-query', async (req, res) => {
+  try {
+    const pool = require('./db');
+    
+    console.log('Testing group list query...');
+    
+    const result = await pool.query(`
+      SELECT g.*, 
+             u.first_name, u.last_name, 
+             CONCAT(u.first_name, ' ', u.last_name) as creator_name,
+             COUNT(DISTINCT m.id) as current_members
+      FROM groups g
+      LEFT JOIN users u ON g.created_by = u.id
+      LEFT JOIN group_members m ON g.id = m.group_id AND m.status = 'approved'
+      WHERE g.status = 'approved'
+      GROUP BY g.id, u.first_name, u.last_name
+      ORDER BY g.created_at DESC
+    `);
+    
+    res.json({
+      success: true,
+      query: 'group list query',
+      row_count: result.rows.length,
+      data: result.rows
+    });
+  } catch (error) {
+    console.error('Query test error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message,
+      detail: error.detail,
+      code: error.code
     });
   }
 });
