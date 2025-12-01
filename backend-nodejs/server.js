@@ -88,12 +88,11 @@ app.get('/api/health', async (req, res) => {
     });
   }
 });
-  
 
-// Temporary migration endpoint - REMOVE after running once!
+// ✅ Temporary migration endpoint - REMOVE after running once!
 app.get('/migrate', async (req, res) => {
   try {
-    const pool = require('./db'); // ✅ ADD THIS LINE
+    const pool = require('./db');
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -119,7 +118,7 @@ app.get('/migrate', async (req, res) => {
     
     res.json({ 
       success: true,
-      message: '✅ Migration successful!' 
+      message: '✅ Users table created successfully!' 
     });
   } catch (error) {
     console.error('Migration error:', error);
@@ -132,11 +131,12 @@ app.get('/migrate', async (req, res) => {
 
 // Import routes
 const groupRoutes = require('./routes/group');
-// Add other routes here as needed
 const authRoutes = require('./routes/auth');
+
 // Use routes
 app.use('/api/group', groupRoutes);
 app.use('/api/auth', authRoutes);
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Error:', err.stack);
