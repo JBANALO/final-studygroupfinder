@@ -8,9 +8,15 @@ const { Server: IOServer } = require('socket.io');
 const app = express();
 const server = http.createServer(app);
 
+const allowedOrigins = [
+  'https://final-studygroupfinder.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173'
+];
+
 const io = new IOServer(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+    origin: allowedOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -36,18 +42,19 @@ io.on('connection', (socket) => {
   });
 });
 
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'https://final-studygroupfinder.vercel.app',
-  'http://localhost:3000'
-].filter(Boolean);
-
 app.use(cors({
-  origin: allowedOrigins,
+  origin: function(origin, callback) {
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      console.log('❌ Blocked by CORS:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   optionsSuccessStatus: 200,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
 }));
 
 app.use(express.json());
@@ -59,7 +66,8 @@ app.get('/', (req, res) => {
   res.json({
     message: 'Study Group API running',
     status: 'ok',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    cors: allowedOrigins
   });
 });
 
