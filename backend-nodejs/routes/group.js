@@ -2,17 +2,26 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db");
 
+// Get all groups
 router.get("/all", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT groups.*, 
-             users.first_name, users.last_name, 
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
+             groups.updated_at,
+             users.first_name, 
+             users.last_name, 
              CONCAT(users.first_name, ' ', users.last_name) as creator_name,
              COUNT(DISTINCT group_members.id) as current_members
       FROM groups
       LEFT JOIN users ON groups.created_by = users.id
-      LEFT JOIN group_members ON groups.id = group_members.group_id AND group_members.status = 'approved'
-      GROUP BY groups.id, users.first_name, users.last_name
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
+      GROUP BY groups.group_id, users.first_name, users.last_name
       ORDER BY groups.created_at DESC
     `);
     
@@ -30,18 +39,25 @@ router.get("/all", async (req, res) => {
   }
 });
 
+// Get approved groups (for listing page)
 router.get("/list", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT groups.*, 
-             users.first_name, users.last_name, 
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
+             users.first_name, 
+             users.last_name, 
              CONCAT(users.first_name, ' ', users.last_name) as creator_name,
              COUNT(DISTINCT group_members.id) as current_members
       FROM groups
       LEFT JOIN users ON groups.created_by = users.id
-      LEFT JOIN group_members ON groups.id = group_members.group_id AND group_members.status = 'approved'
-      WHERE groups.status = 'approved'
-      GROUP BY groups.id, users.first_name, users.last_name
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
+      GROUP BY groups.group_id, users.first_name, users.last_name
       ORDER BY groups.created_at DESC
     `);
     
@@ -59,17 +75,24 @@ router.get("/list", async (req, res) => {
   }
 });
 
+// Get user's created groups
 router.get("/my-groups/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     
     const result = await pool.query(`
-      SELECT groups.*, 
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
              COUNT(DISTINCT group_members.id) as current_members
       FROM groups
-      LEFT JOIN group_members ON groups.id = group_members.group_id AND group_members.status = 'approved'
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
       WHERE groups.created_by = $1
-      GROUP BY groups.id
+      GROUP BY groups.group_id
       ORDER BY groups.created_at DESC
     `, [userId]);
     
@@ -87,19 +110,25 @@ router.get("/my-groups/:userId", async (req, res) => {
   }
 });
 
+// Get groups user has joined
 router.get("/my-joined/:userId", async (req, res) => {
   try {
     const { userId } = req.params;
     
     const result = await pool.query(`
-      SELECT groups.id, groups.group_name, groups.topic, groups.description, 
-             groups.course, groups.location, groups.size, groups.status,
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
              COUNT(DISTINCT m2.id) as current_members
       FROM groups
-      INNER JOIN group_members ON groups.id = group_members.group_id
-      LEFT JOIN group_members m2 ON groups.id = m2.group_id AND m2.status = 'approved'
+      INNER JOIN group_members ON groups.group_id = group_members.group_id
+      LEFT JOIN group_members m2 ON groups.group_id = m2.group_id AND m2.status = 'approved'
       WHERE group_members.user_id = $1 AND group_members.status = 'approved'
-      GROUP BY groups.id
+      GROUP BY groups.group_id
       ORDER BY groups.created_at DESC
     `, [userId]);
     
@@ -117,6 +146,7 @@ router.get("/my-joined/:userId", async (req, res) => {
   }
 });
 
+// Join a group
 router.post("/join", async (req, res) => {
   try {
     const { groupId, userId } = req.body;
@@ -128,6 +158,7 @@ router.post("/join", async (req, res) => {
       });
     }
     
+    // Check if already a member
     const existing = await pool.query(
       "SELECT * FROM group_members WHERE group_id = $1 AND user_id = $2",
       [groupId, userId]
@@ -143,12 +174,13 @@ router.post("/join", async (req, res) => {
       });
     }
     
+    // Check if group is full
     const groupCheck = await pool.query(`
-      SELECT groups.size, COUNT(group_members.id) as current_members
+      SELECT groups.max_member, COUNT(group_members.id) as current_members
       FROM groups
-      LEFT JOIN group_members ON groups.id = group_members.group_id AND group_members.status = 'approved'
-      WHERE groups.id = $1
-      GROUP BY groups.id, groups.size
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
+      WHERE groups.group_id = $1
+      GROUP BY groups.group_id, groups.max_member
     `, [groupId]);
     
     if (groupCheck.rows.length === 0) {
@@ -158,14 +190,15 @@ router.post("/join", async (req, res) => {
       });
     }
     
-    const { size, current_members } = groupCheck.rows[0];
-    if (parseInt(current_members) >= parseInt(size)) {
+    const { max_member, current_members } = groupCheck.rows[0];
+    if (parseInt(current_members) >= parseInt(max_member)) {
       return res.json({
         success: false,
         message: 'This group is already full'
       });
     }
     
+    // Add join request
     await pool.query(
       "INSERT INTO group_members (group_id, user_id, status) VALUES ($1, $2, 'pending')",
       [groupId, userId]
@@ -185,20 +218,29 @@ router.post("/join", async (req, res) => {
   }
 });
 
+// Get single group by ID
 router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
     const result = await pool.query(`
-      SELECT groups.*, 
-             users.first_name, users.last_name, users.username,
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
+             users.first_name, 
+             users.last_name, 
+             users.username,
              CONCAT(users.first_name, ' ', users.last_name) as creator_name,
              COUNT(DISTINCT group_members.id) as current_members
       FROM groups
       LEFT JOIN users ON groups.created_by = users.id
-      LEFT JOIN group_members ON groups.id = group_members.group_id AND group_members.status = 'approved'
-      WHERE groups.id = $1
-      GROUP BY groups.id, users.first_name, users.last_name, users.username
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
+      WHERE groups.group_id = $1
+      GROUP BY groups.group_id, users.first_name, users.last_name, users.username
     `, [id]);
     
     if (result.rows.length === 0) {
@@ -222,22 +264,23 @@ router.get("/:id", async (req, res) => {
   }
 });
 
+// Create new group
 router.post("/", async (req, res) => {
   try {
-    const { group_name, topic, description, course, location, size, created_by } = req.body;
+    const { group_name, subject, description, max_member, created_by } = req.body;
     
-    if (!group_name || !course || !size || !created_by) {
+    if (!group_name || !subject || !max_member || !created_by) {
       return res.status(400).json({
         success: false,
-        message: "Group name, course, size, and creator are required"
+        message: "Group name, subject, max members, and creator are required"
       });
     }
     
     const result = await pool.query(
-      `INSERT INTO groups (group_name, topic, description, course, location, size, created_by, status) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending') 
-       RETURNING *`,
-      [group_name, topic, description, course, location, size, created_by]
+      `INSERT INTO groups (group_name, subject, description, max_member, created_by) 
+       VALUES ($1, $2, $3, $4, $5) 
+       RETURNING group_id as id, group_name, subject, description, max_member, created_by, created_at`,
+      [group_name, subject, description, max_member, created_by]
     );
     
     const io = req.app.get('io');
@@ -247,7 +290,7 @@ router.post("/", async (req, res) => {
     
     res.status(201).json({
       success: true,
-      message: "Group created successfully and pending approval",
+      message: "Group created successfully",
       data: result.rows[0]
     });
   } catch (err) {
@@ -260,17 +303,18 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Update group
 router.put("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const { group_name, topic, description, course, location, size } = req.body;
+    const { group_name, subject, description, max_member } = req.body;
     
     const result = await pool.query(
       `UPDATE groups 
-       SET group_name = $1, topic = $2, description = $3, course = $4, location = $5, size = $6, updated_at = NOW()
-       WHERE id = $7 
-       RETURNING *`,
-      [group_name, topic, description, course, location, size, id]
+       SET group_name = $1, subject = $2, description = $3, max_member = $4, updated_at = NOW()
+       WHERE group_id = $5 
+       RETURNING group_id as id, group_name, subject, description, max_member, created_by, created_at, updated_at`,
+      [group_name, subject, description, max_member, id]
     );
     
     if (result.rows.length === 0) {
@@ -295,11 +339,15 @@ router.put("/:id", async (req, res) => {
   }
 });
 
+// Delete group
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     
-    const result = await pool.query("DELETE FROM groups WHERE id = $1 RETURNING *", [id]);
+    const result = await pool.query(
+      "DELETE FROM groups WHERE group_id = $1 RETURNING group_id as id, group_name",
+      [id]
+    );
     
     if (result.rows.length === 0) {
       return res.status(404).json({
