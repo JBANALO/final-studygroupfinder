@@ -5,13 +5,29 @@ const path = require('path');
 const http = require('http');
 const { Server: IOServer } = require('socket.io');
 
+
 const app = express();
 const server = http.createServer(app);
 
+// CORS MUST BE FIRST
+app.use(cors({
+  origin: [
+    'https://victorious-fascination-production.up.railway.app',
+    'https://final-studygroup-production.up.railway.app',
+    'http://localhost:5173',
+    'http://localhost:4173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.options('*', cors());
+
 const allowedOrigins = [
   'https://victorious-fascination-production.up.railway.app',
-  'http://localhost:4173',
-  'http://localhost:5173'
+  'https://final-studygroup-production.up.railway.app',
+  'http://localhost:5173',
+  'http://localhost:4173'
 ];
 
 const io = new IOServer(server, {
@@ -41,15 +57,6 @@ io.on('connection', (socket) => {
     console.log('❌ User disconnected:', socket.id);
   });
 });
-
-app.use(cors({
-  origin: [
-    'https://victorious-fascination-production.up.railway.app',
-    'http://localhost:5173'
-  ],
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
-}));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
