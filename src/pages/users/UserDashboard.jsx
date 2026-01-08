@@ -6,8 +6,13 @@ import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 // ✅ USE ENVIRONMENT VARIABLE
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const socket = io(API_URL, { transports: ["websocket", "polling"] });
+const socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+  transports: ['websocket', 'polling'],
+  withCredentials: true,
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 1000
+});
 
 export default function UserDashboard() {
   const navigate = useNavigate();

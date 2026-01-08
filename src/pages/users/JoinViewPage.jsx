@@ -127,9 +127,12 @@ export default function JoinViewPage() {
 
     loadGroup();
 
-    const socket = io(API_URL, { 
-      transports: ["websocket", "polling"],
-      withCredentials: true 
+    const socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
     });
     socketRef.current = socket;
     socket.emit("join_group", parseInt(groupId));

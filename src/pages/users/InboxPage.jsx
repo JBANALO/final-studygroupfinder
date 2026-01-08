@@ -50,7 +50,13 @@ export default function InboxPage() {
     fetchNotifications();
 
     if (!userId) return;
-    const socket = io(API_URL, { transports: ["websocket", "polling"] });
+    const socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
 
     socket.on("connect", () => socket.emit("join", userId));
 

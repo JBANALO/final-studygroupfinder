@@ -12,9 +12,13 @@ export const NotificationProvider = ({ children }) => {
     const user = storedUser ? JSON.parse(storedUser) : null;
     if (!user) return;
 
-    // Connect to Socket.IO - use environment variable
-    const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
-    const sock = io(API_URL, { transports: ["websocket", "polling"] });
+    const sock = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+      transports: ['websocket', 'polling'],
+      withCredentials: true,
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000
+    });
 
     sock.on("connect", () => {
       sock.emit("join", user.id);
@@ -26,7 +30,7 @@ export const NotificationProvider = ({ children }) => {
     // Fetch initial unread count
     (async () => {
       try {
-        const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
+        const res = await fetch(`https://wmsu-study-group-finder-4y0u.onrender.com/api/notifications/${user.id}`);
         const data = await res.json();
         const count = data.filter(n => !n.is_read && !n.is_archived && !n.is_deleted).length;
         setUnreadCount(count);
