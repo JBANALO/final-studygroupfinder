@@ -5,8 +5,10 @@ import { io } from "socket.io-client";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 // ✅ USE ENVIRONMENT VARIABLE
-const socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+const socket = io(API_URL, {
   transports: ['websocket', 'polling'],
   withCredentials: true,
   reconnection: true,

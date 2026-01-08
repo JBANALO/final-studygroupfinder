@@ -74,7 +74,7 @@ export default function GroupCreator({ currentUserId: propUserId }) {
 
     fetchGroups();
     fetchPendingMembers();
-    socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+    socket = io(API_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       reconnection: true,
