@@ -48,7 +48,8 @@ const allowedOrigins = [
   'http://localhost:3000',
   FRONTEND_URL,
   'https://wmsu-study-group-finder-frontend.onrender.com',
-  'https://wmsu-study-group-finder.onrender.com'
+  'https://wmsu-study-group-finder.onrender.com',
+  'https://final-wmsustudygroup.vercel.app'
 ];
 
 console.log('🌐 Allowed CORS Origins:', allowedOrigins);
