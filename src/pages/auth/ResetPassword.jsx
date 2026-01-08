@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams, Link } from "react-router-dom";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/solid";
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 export default function ResetPassword() {
   const navigate = useNavigate();
