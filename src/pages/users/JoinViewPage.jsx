@@ -127,7 +127,7 @@ export default function JoinViewPage() {
 
     loadGroup();
 
-    const socket = io(API_URL, {
+    const socket = io(API_URL || 'https://final-studygroup-production.up.railway.app', {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       reconnection: true,

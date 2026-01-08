@@ -3,7 +3,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { io } from "socket.io-client";
 
 const NotificationContext = createContext();
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'https://final-studygroup-production.up.railway.app';
 
 export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);

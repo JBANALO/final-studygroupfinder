@@ -17,7 +17,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'https://final-studygroup-production.up.railway.app';
 
 export default function InboxPage() {
   const [messages, setMessages] = useState([]);

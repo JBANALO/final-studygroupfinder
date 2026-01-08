@@ -5,7 +5,7 @@ import { io } from "socket.io-client";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'https://final-studygroup-production.up.railway.app';
 
 // ✅ USE ENVIRONMENT VARIABLE
 const socket = io(API_URL, {
