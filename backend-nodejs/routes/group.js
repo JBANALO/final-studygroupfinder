@@ -218,52 +218,6 @@ router.post("/join", async (req, res) => {
   }
 });
 
-// Get single group by ID
-router.get("/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const result = await pool.query(`
-      SELECT groups.group_id as id, 
-             groups.group_name, 
-             groups.description, 
-             groups.subject,
-             groups.max_member,
-             groups.created_by,
-             groups.created_at,
-             users.first_name, 
-             users.last_name, 
-             users.username,
-             CONCAT(users.first_name, ' ', users.last_name) as creator_name,
-             COUNT(DISTINCT group_members.id) as current_members
-      FROM groups
-      LEFT JOIN users ON groups.created_by = users.id
-      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
-      WHERE groups.group_id = $1
-      GROUP BY groups.group_id, users.first_name, users.last_name, users.username
-    `, [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "Group not found"
-      });
-    }
-    
-    res.json({
-      success: true,
-      data: result.rows[0]
-    });
-  } catch (err) {
-    console.error("Error fetching group:", err);
-    res.status(500).json({
-      success: false,
-      message: "Failed to fetch group",
-      error: err.message
-    });
-  }
-});
-
 // Create new group
 router.post("/", async (req, res) => {
   try {
@@ -365,6 +319,54 @@ router.delete("/:id", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Failed to delete group",
+      error: err.message
+    });
+  }
+});
+
+
+// ⚠️ MOVE THIS TO THE VERY BOTTOM - LAST ROUTE
+// Get single group by ID
+router.get("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(`
+      SELECT groups.group_id as id, 
+             groups.group_name, 
+             groups.description, 
+             groups.subject,
+             groups.max_member,
+             groups.created_by,
+             groups.created_at,
+             users.first_name, 
+             users.last_name, 
+             users.username,
+             CONCAT(users.first_name, ' ', users.last_name) as creator_name,
+             COUNT(DISTINCT group_members.id) as current_members
+      FROM groups
+      LEFT JOIN users ON groups.created_by = users.id
+      LEFT JOIN group_members ON groups.group_id = group_members.group_id AND group_members.status = 'approved'
+      WHERE groups.group_id = $1
+      GROUP BY groups.group_id, users.first_name, users.last_name, users.username
+    `, [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Group not found"
+      });
+    }
+    
+    res.json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (err) {
+    console.error("Error fetching group:", err);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch group",
       error: err.message
     });
   }
