@@ -3,6 +3,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { io } from "socket.io-client";
 
 const NotificationContext = createContext();
+const API_URL = import.meta.env.VITE_API_URL;
 
 export const NotificationProvider = ({ children }) => {
   const [unreadCount, setUnreadCount] = useState(0);
@@ -12,7 +13,7 @@ export const NotificationProvider = ({ children }) => {
     const user = storedUser ? JSON.parse(storedUser) : null;
     if (!user) return;
 
-    const sock = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+    const sock = io(API_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       reconnection: true,
@@ -30,7 +31,7 @@ export const NotificationProvider = ({ children }) => {
     // Fetch initial unread count
     (async () => {
       try {
-        const res = await fetch(`https://wmsu-study-group-finder-4y0u.onrender.com/api/notifications/${user.id}`);
+        const res = await fetch(`${API_URL}/api/notifications/${user.id}`);
         const data = await res.json();
         const count = data.filter(n => !n.is_read && !n.is_archived && !n.is_deleted).length;
         setUnreadCount(count);

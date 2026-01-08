@@ -44,7 +44,7 @@ export default function ManageGroups() {
 
   useEffect(() => {
     fetchGroups();
-    const socket = io('https://wmsu-study-group-finder-4y0u.onrender.com', {
+    const socket = io(API_URL, {
       transports: ['websocket', 'polling'],
       withCredentials: true,
       reconnection: true,
