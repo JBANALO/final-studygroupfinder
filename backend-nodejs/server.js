@@ -21,7 +21,6 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.options('*', cors());
 
 const allowedOrigins = [
   'https://victorious-fascination-production.up.railway.app',
