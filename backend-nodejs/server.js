@@ -9,8 +9,8 @@ const app = express();
 const server = http.createServer(app);
 
 const allowedOrigins = [
-  'https://final-studygroupfinder.vercel.app',
-  'http://localhost:3000',
+  'https://victorious-fascination-production.up.railway.app',
+  'http://localhost:4173',
   'http://localhost:5173'
 ];
 
