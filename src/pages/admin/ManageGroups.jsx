@@ -6,7 +6,7 @@ import { CheckCircleIcon, XCircleIcon, UsersIcon, ClockIcon, ChevronDownIcon, Ch
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'https://final-studygroup-production.up.railway.app';
 
 export default function ManageGroups() {
   const [groups, setGroups] = useState([]);
